@@ -1,0 +1,16 @@
+{
+  "id": "p1-http-server",
+  "phase": 1,
+  "component": "collector",
+  "title": "HTTP server + /v1 router + shutdown",
+  "depends_on": [
+    "p1-config-loader"
+  ],
+  "src_files": [
+    "collector/server.go",
+    "collector/main.go"
+  ],
+  "exit_check": "spyglassd boots, serves /v1 routes from config listen addr, graceful shutdown on SIGINT",
+  "refs": "§6",
+  "status": "todo"
+}

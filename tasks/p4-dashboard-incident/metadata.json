@@ -1,0 +1,17 @@
+{
+  "id": "p4-dashboard-incident",
+  "phase": 4,
+  "component": "dashboard",
+  "title": "Incident view (the killer page)",
+  "depends_on": [
+    "p2-dashboard-player",
+    "p4-incident-slice",
+    "p3-dashboard-errors"
+  ],
+  "src_files": [
+    "collector/dashboard/ui/views/Incident.tsx"
+  ],
+  "exit_check": "Click report → open incident → replay cued to that exact moment — PHASE 4 EXIT",
+  "refs": "§7.4",
+  "status": "todo"
+}

@@ -1,0 +1,17 @@
+{
+  "id": "p5-packaging",
+  "phase": 5,
+  "component": "collector",
+  "title": "Packaging: cross-compile + npx wrapper + Docker",
+  "depends_on": [
+    "p1-http-server"
+  ],
+  "src_files": [
+    "collector/Makefile",
+    "Dockerfile",
+    "scripts/install.sh"
+  ],
+  "exit_check": "Static binaries for darwin/linux amd64+arm64; npx/install path; Docker example",
+  "refs": "§3, §10",
+  "status": "todo"
+}

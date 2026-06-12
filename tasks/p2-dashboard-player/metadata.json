@@ -1,0 +1,16 @@
+{
+  "id": "p2-dashboard-player",
+  "phase": 2,
+  "component": "dashboard",
+  "title": "rrweb-player view + console pane",
+  "depends_on": [
+    "p1-dashboard-shell",
+    "p2-replay-manifest"
+  ],
+  "src_files": [
+    "collector/dashboard/ui/views/Replay.tsx"
+  ],
+  "exit_check": "Watch any session end-to-end with seek + console pane — PHASE 2 EXIT",
+  "refs": "§7.3",
+  "status": "todo"
+}

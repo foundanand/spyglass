@@ -1,0 +1,15 @@
+{
+  "id": "p1-sdk-next-provider",
+  "phase": 1,
+  "component": "sdk",
+  "title": "<SpyglassProvider> app-router pageviews",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/next.tsx"
+  ],
+  "exit_check": "Provider auto-fires pageviews on route change via usePathname/useSearchParams",
+  "refs": "§5",
+  "status": "todo"
+}

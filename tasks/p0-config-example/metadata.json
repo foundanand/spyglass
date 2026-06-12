@@ -1,0 +1,13 @@
+{
+  "id": "p0-config-example",
+  "phase": 0,
+  "component": "repo",
+  "title": "spyglass.config.example.json",
+  "depends_on": [],
+  "src_files": [
+    "spyglass.config.example.json"
+  ],
+  "exit_check": "Example config matches the schema in CLAUDE.md §6 exactly",
+  "refs": "§6",
+  "status": "done"
+}

@@ -1,0 +1,17 @@
+{
+  "listen": ":7474",
+  "dataDir": "./data",
+  "apps": {
+    "inventory": {
+      "key": "sg_live_replace_me",
+      "origins": ["http://localhost:3000", "https://inventory.internal.acme.dev"]
+    }
+  },
+  "retention": {
+    "replays_days": 21,
+    "events_days": 0
+  },
+  "auth": {
+    "dashboard_password": "env:SPYGLASS_PASS"
+  }
+}

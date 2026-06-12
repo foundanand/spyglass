@@ -1,0 +1,16 @@
+{
+  "id": "p1-query-events",
+  "phase": 1,
+  "component": "collector",
+  "title": "GET /v1/query/events + /v1/query/users",
+  "depends_on": [
+    "p1-store-open"
+  ],
+  "src_files": [
+    "collector/query/events.go",
+    "collector/query/users.go"
+  ],
+  "exit_check": "Filtered event stream (user/type/from/to) and active-users list return correct JSON; table-driven test",
+  "refs": "§6",
+  "status": "todo"
+}

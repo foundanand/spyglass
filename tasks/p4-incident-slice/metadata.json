@@ -1,0 +1,16 @@
+{
+  "id": "p4-incident-slice",
+  "phase": 4,
+  "component": "collector",
+  "title": "GET /v1/incidents/:event_id (slice assembly)",
+  "depends_on": [
+    "p1-query-events",
+    "p2-replay-manifest"
+  ],
+  "src_files": [
+    "collector/query/incident.go"
+  ],
+  "exit_check": "For an error/bug_report event, assemble [ts−60s, ts+10s] slice: events + replay cue + network + console refs",
+  "refs": "§6, §7.4",
+  "status": "todo"
+}

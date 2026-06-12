@@ -1,0 +1,15 @@
+{
+  "id": "p3-sdk-network",
+  "phase": 3,
+  "component": "sdk",
+  "title": "fetch + XHR interception (metadata)",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/network.ts"
+  ],
+  "exit_check": "fetch/XHR produce network events with method/url/status/duration/sizes; auth headers never recorded",
+  "refs": "§5, §8",
+  "status": "todo"
+}

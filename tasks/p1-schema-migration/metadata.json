@@ -1,0 +1,16 @@
+{
+  "id": "p1-schema-migration",
+  "phase": 1,
+  "component": "collector",
+  "title": "SQLite schema v1 + migration runner",
+  "depends_on": [
+    "p0-collector-skeleton"
+  ],
+  "src_files": [
+    "collector/store/migrations/001_init.sql",
+    "collector/store/migrate.go"
+  ],
+  "exit_check": "Boot applies numbered migrations idempotently; events+sessions tables and indexes exist",
+  "refs": "§4, §12",
+  "status": "todo"
+}

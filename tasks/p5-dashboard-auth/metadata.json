@@ -1,0 +1,16 @@
+{
+  "id": "p5-dashboard-auth",
+  "phase": 5,
+  "component": "collector",
+  "title": "Dashboard shared-password auth",
+  "depends_on": [
+    "p1-http-server",
+    "p1-dashboard-shell"
+  ],
+  "src_files": [
+    "collector/dashboard/auth.go"
+  ],
+  "exit_check": "Dashboard + query routes gated by the single shared password (auth.dashboard_password)",
+  "refs": "§6, §13.2",
+  "status": "todo"
+}

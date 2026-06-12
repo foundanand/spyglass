@@ -1,0 +1,16 @@
+{
+  "id": "p1-sdk-queue",
+  "phase": 1,
+  "component": "sdk",
+  "title": "Event queue + batching + transport",
+  "depends_on": [
+    "p1-sdk-init"
+  ],
+  "src_files": [
+    "sdk/src/queue.ts",
+    "sdk/src/transport.ts"
+  ],
+  "exit_check": "Flush every 5s or 20 events via fetch POST to /v1/events; vitest",
+  "refs": "§5",
+  "status": "todo"
+}

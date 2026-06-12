@@ -1,0 +1,15 @@
+{
+  "id": "p2-replay-ingest",
+  "phase": 2,
+  "component": "collector",
+  "title": "POST /v1/replay → disk",
+  "depends_on": [
+    "p1-store-open"
+  ],
+  "src_files": [
+    "collector/ingest/replay.go"
+  ],
+  "exit_check": "Gzipped chunk written to disk; sessions.chunk_count bumped; table-driven test",
+  "refs": "§4, §6",
+  "status": "todo"
+}

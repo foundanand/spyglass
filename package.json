@@ -1,0 +1,24 @@
+{
+  "name": "spyglass",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Self-hosted user behavior analytics, session replay, and bug reporting for small closed-loop apps.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm --filter @spyglass/sdk build",
+    "test": "pnpm --filter @spyglass/sdk test",
+    "format": "prettier --write \"**/*.{ts,tsx,mjs,json,md,mdx}\" --cache",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mjs,json,md,mdx}\" --cache"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

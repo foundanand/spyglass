@@ -1,0 +1,17 @@
+{
+  "id": "p0-monorepo",
+  "phase": 0,
+  "component": "repo",
+  "title": "pnpm workspace + repo foundation",
+  "depends_on": [],
+  "src_files": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    ".gitignore",
+    "tsconfig.base.json",
+    "prettier.config.js"
+  ],
+  "exit_check": "`pnpm install` succeeds at the root; workspace resolves sdk/ and examples/*",
+  "refs": "§11, §12",
+  "status": "done"
+}

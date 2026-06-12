@@ -1,0 +1,15 @@
+{
+  "id": "p2-replay-disk-layout",
+  "phase": 2,
+  "component": "collector",
+  "title": "Replay disk layout + meta.json seek index",
+  "depends_on": [
+    "p2-replay-ingest"
+  ],
+  "src_files": [
+    "collector/store/replaydir.go"
+  ],
+  "exit_check": "replays/{session}/ holds chunks + meta.json timestamp index for seeking",
+  "refs": "§4",
+  "status": "todo"
+}

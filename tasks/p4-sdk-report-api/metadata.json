@@ -1,0 +1,15 @@
+{
+  "id": "p4-sdk-report-api",
+  "phase": 4,
+  "component": "sdk",
+  "title": "spyglass.report() programmatic",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/capture.ts"
+  ],
+  "exit_check": "report('msg') emits a bug_report event without the widget UI; vitest",
+  "refs": "§5",
+  "status": "todo"
+}

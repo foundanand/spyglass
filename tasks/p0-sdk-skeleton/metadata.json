@@ -1,0 +1,19 @@
+{
+  "id": "p0-sdk-skeleton",
+  "phase": 0,
+  "component": "sdk",
+  "title": "@spyglass/sdk package + esbuild + vitest",
+  "depends_on": [
+    "p0-monorepo"
+  ],
+  "src_files": [
+    "sdk/package.json",
+    "sdk/tsconfig.json",
+    "sdk/build.mjs",
+    "sdk/vitest.config.ts",
+    "sdk/src/index.ts"
+  ],
+  "exit_check": "`pnpm --filter @spyglass/sdk build` emits a bundle; `pnpm --filter @spyglass/sdk test` runs",
+  "refs": "§5, §12",
+  "status": "done"
+}

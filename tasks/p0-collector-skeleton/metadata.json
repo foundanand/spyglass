@@ -1,0 +1,18 @@
+{
+  "id": "p0-collector-skeleton",
+  "phase": 0,
+  "component": "collector",
+  "title": "Go module skeleton (spyglassd)",
+  "depends_on": [],
+  "src_files": [
+    "collector/go.mod",
+    "collector/main.go",
+    "collector/ingest/",
+    "collector/store/",
+    "collector/query/",
+    "collector/dashboard/"
+  ],
+  "exit_check": "`go build ./...` in collector/ succeeds; `spyglassd --config` flag parses",
+  "refs": "§3, §6, §11",
+  "status": "done"
+}

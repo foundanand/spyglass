@@ -1,0 +1,23 @@
+---
+title: Documentation
+description: Self-hosted user behavior analytics, session replay, and bug reporting for small closed-loop apps. One Go binary, one SQLite file, one npm package.
+---
+
+**spyglass** is the telemetry stack for internal tools — the apps with 20–200
+identified daily users that need events, session replay, error tracking, and
+bug reports, but none of the billion-event machinery (ClickHouse, Kafka,
+Kubernetes) that PostHog, Highlight, and OpenReplay assume.
+
+It is one cross-compiled Go binary writing to one SQLite file plus gzipped
+replay blobs on disk, paired with a ~5KB npm SDK. Zero external services, no
+database server, no phone-home. Everything stays on the operator's machine.
+
+> These docs are the source of truth and live alongside the code. They are
+> authored as Fumadocs MDX and rendered by a separate website repo.
+
+## The structural advantage
+
+In a closed internal system, every session is recorded continuously with
+identified users. "What happened when the bug occurred" stops being a *capture*
+problem and becomes a *query* over data already on disk — so bug reporting is a
+view layer, nearly free.

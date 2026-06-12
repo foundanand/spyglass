@@ -1,0 +1,15 @@
+{
+  "id": "p4-sdk-autocapture",
+  "phase": 4,
+  "component": "sdk",
+  "title": "Opt-in autocapture (click + change)",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/autocapture.ts"
+  ],
+  "exit_check": "autocapture:true lazy-loads a module recording clicks + form changes; zero bytes when off",
+  "refs": "§2, §5",
+  "status": "todo"
+}

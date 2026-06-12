@@ -1,0 +1,15 @@
+{
+  "id": "p2-sdk-chunk-gzip",
+  "phase": 2,
+  "component": "sdk",
+  "title": "~10s chunking + CompressionStream gzip",
+  "depends_on": [
+    "p2-sdk-rrweb"
+  ],
+  "src_files": [
+    "sdk/src/replay/chunk.ts"
+  ],
+  "exit_check": "rrweb events batched into ~10s gzipped chunks via native CompressionStream",
+  "refs": "§4, §5",
+  "status": "todo"
+}

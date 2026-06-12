@@ -1,0 +1,15 @@
+{
+  "id": "p2-retention-sweep",
+  "phase": 2,
+  "component": "collector",
+  "title": "Daily retention sweep",
+  "depends_on": [
+    "p2-replay-disk-layout"
+  ],
+  "src_files": [
+    "collector/store/retention.go"
+  ],
+  "exit_check": "Daily in-process sweep deletes replay dirs older than replays_days (events_days=0 keeps forever)",
+  "refs": "§6, §8",
+  "status": "todo"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "p4-sdk-report-widget",
+  "phase": 4,
+  "component": "sdk",
+  "title": "Bug-report widget (Shadow DOM)",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/widget.ts"
+  ],
+  "exit_check": "Floating button → comment box → emits bug_report event; Shadow DOM, no style bleed",
+  "refs": "§5",
+  "status": "todo"
+}

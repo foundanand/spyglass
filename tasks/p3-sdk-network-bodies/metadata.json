@@ -1,0 +1,15 @@
+{
+  "id": "p3-sdk-network-bodies",
+  "phase": 3,
+  "component": "sdk",
+  "title": "Opt-in body capture (allow-list)",
+  "depends_on": [
+    "p3-sdk-network"
+  ],
+  "src_files": [
+    "sdk/src/network.ts"
+  ],
+  "exit_check": "Bodies captured only for allow-listed route prefixes, truncated to 2KB",
+  "refs": "§5, §8",
+  "status": "todo"
+}

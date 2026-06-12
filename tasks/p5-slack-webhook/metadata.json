@@ -1,0 +1,15 @@
+{
+  "id": "p5-slack-webhook",
+  "phase": 5,
+  "component": "collector",
+  "title": "Optional Slack webhook on bug_report",
+  "depends_on": [
+    "p4-incident-slice"
+  ],
+  "src_files": [
+    "collector/ingest/notify.go"
+  ],
+  "exit_check": "When configured, a new bug_report POSTs a link to the incident to a Slack webhook; off by default",
+  "refs": "§13.4",
+  "status": "todo"
+}

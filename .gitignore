@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.source/
+collector/dashboard/ui/dist/
+collector/spyglassd
+collector/spyglassd-*
+
+# runtime data (collector writes here)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# next.js (example app)
+examples/**/.next/
+examples/**/out/
+
+# env / secrets
+.env
+.env.local
+*.local
+
+# os / editor
+.DS_Store
+*.log

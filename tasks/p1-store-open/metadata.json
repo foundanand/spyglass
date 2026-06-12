@@ -1,0 +1,15 @@
+{
+  "id": "p1-store-open",
+  "phase": 1,
+  "component": "collector",
+  "title": "Store: open WAL DB + prepared inserts",
+  "depends_on": [
+    "p1-schema-migration"
+  ],
+  "src_files": [
+    "collector/store/store.go"
+  ],
+  "exit_check": "Opens SQLite in WAL mode, runs migrations, exposes a batched-insert API",
+  "refs": "§3, §4",
+  "status": "todo"
+}

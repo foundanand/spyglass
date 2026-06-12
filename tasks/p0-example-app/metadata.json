@@ -1,0 +1,17 @@
+{
+  "id": "p0-example-app",
+  "phase": 0,
+  "component": "example",
+  "title": "examples/nextjs-demo skeleton",
+  "depends_on": [
+    "p0-monorepo",
+    "p0-sdk-skeleton"
+  ],
+  "src_files": [
+    "examples/nextjs-demo/package.json",
+    "examples/nextjs-demo/app/"
+  ],
+  "exit_check": "`pnpm --filter nextjs-demo dev` boots a Next app that imports @spyglass/sdk from the workspace",
+  "refs": "§11",
+  "status": "done"
+}

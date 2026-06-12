@@ -1,0 +1,15 @@
+{
+  "id": "p5-funnel-query",
+  "phase": 5,
+  "component": "collector",
+  "title": "GET /v1/query/funnel",
+  "depends_on": [
+    "p1-store-open"
+  ],
+  "src_files": [
+    "collector/query/funnel.go"
+  ],
+  "exit_check": "?steps=a,b,c returns a simple SQL step funnel; table-driven test",
+  "refs": "§6, §7.5",
+  "status": "todo"
+}

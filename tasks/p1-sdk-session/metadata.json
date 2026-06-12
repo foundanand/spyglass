@@ -1,0 +1,15 @@
+{
+  "id": "p1-sdk-session",
+  "phase": 1,
+  "component": "sdk",
+  "title": "Session id + 30min idle reset",
+  "depends_on": [
+    "p1-sdk-init"
+  ],
+  "src_files": [
+    "sdk/src/session.ts"
+  ],
+  "exit_check": "Random id in sessionStorage; new id after 30min idle; vitest with faked time",
+  "refs": "§5",
+  "status": "todo"
+}

@@ -1,0 +1,16 @@
+{
+  "id": "p5-docs-readme",
+  "phase": 5,
+  "component": "docs",
+  "title": "README + docs MDX + MIT license",
+  "depends_on": [],
+  "src_files": [
+    "README.md",
+    "LICENSE",
+    "docs/getting-started.mdx",
+    "docs/meta.json"
+  ],
+  "exit_check": "README in dynamoip voice; docs/ MDX expanded; MIT license present",
+  "refs": "§1, §10",
+  "status": "todo"
+}

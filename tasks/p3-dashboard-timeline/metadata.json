@@ -1,0 +1,16 @@
+{
+  "id": "p3-dashboard-timeline",
+  "phase": 3,
+  "component": "dashboard",
+  "title": "User timeline view",
+  "depends_on": [
+    "p1-dashboard-shell",
+    "p1-query-events"
+  ],
+  "src_files": [
+    "collector/dashboard/ui/views/UserTimeline.tsx"
+  ],
+  "exit_check": "Pick user → sessions → chronological breadcrumbs (pageviews, captures, network, errors)",
+  "refs": "§7.2",
+  "status": "todo"
+}

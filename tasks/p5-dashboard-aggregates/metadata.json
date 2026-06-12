@@ -1,0 +1,17 @@
+{
+  "id": "p5-dashboard-aggregates",
+  "phase": 5,
+  "component": "dashboard",
+  "title": "Aggregates view (DAU, top events/pages, errors)",
+  "depends_on": [
+    "p1-dashboard-shell",
+    "p1-query-events"
+  ],
+  "src_files": [
+    "collector/dashboard/ui/views/Aggregates.tsx",
+    "collector/query/aggregates.go"
+  ],
+  "exit_check": "DAU, top events, top pages, error counts by day via GROUP BY",
+  "refs": "§7.5",
+  "status": "todo"
+}

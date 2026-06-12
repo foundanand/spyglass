@@ -1,0 +1,15 @@
+{
+  "id": "p2-sdk-rrweb",
+  "phase": 2,
+  "component": "sdk",
+  "title": "rrweb record + console plugin (lazy)",
+  "depends_on": [
+    "p1-sdk-init"
+  ],
+  "src_files": [
+    "sdk/src/replay/record.ts"
+  ],
+  "exit_check": "When replay:true, rrweb + console plugin load as a separate chunk and start recording",
+  "refs": "§5, §3",
+  "status": "todo"
+}

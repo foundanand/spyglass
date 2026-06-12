@@ -1,0 +1,15 @@
+{
+  "id": "p2-replay-manifest",
+  "phase": 2,
+  "component": "collector",
+  "title": "GET /v1/sessions/:id/replay (manifest + stream)",
+  "depends_on": [
+    "p2-replay-disk-layout"
+  ],
+  "src_files": [
+    "collector/query/replay.go"
+  ],
+  "exit_check": "Returns chunk manifest and streams individual chunks for the player",
+  "refs": "§6, §7.3",
+  "status": "todo"
+}

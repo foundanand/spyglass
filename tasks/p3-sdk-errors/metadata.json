@@ -1,0 +1,15 @@
+{
+  "id": "p3-sdk-errors",
+  "phase": 3,
+  "component": "sdk",
+  "title": "Error handlers + dedup",
+  "depends_on": [
+    "p1-sdk-capture"
+  ],
+  "src_files": [
+    "sdk/src/errors.ts"
+  ],
+  "exit_check": "onerror/unhandledrejection/console.error captured as error events, deduped within 5s; vitest",
+  "refs": "§5",
+  "status": "todo"
+}

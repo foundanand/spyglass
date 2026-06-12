@@ -1,0 +1,507 @@
+{
+  "schema": "spyglass-build/v0",
+  "note": "Build broken into self-contained tasks, grouped by the phases in CLAUDE.md §10. Each task has its own folder (task.md + metadata.json) and is sized for a smaller model or a parallel run. Respect depends_on ordering. Do not start phase N+1 with phase N broken.",
+  "phases": {
+    "0": "Scaffold — pnpm workspace, Go module, SDK package + esbuild, example app, config",
+    "1": "Events core (the spine) — collector ingest + SQLite + SDK basics + live-feed dashboard",
+    "2": "Replay — rrweb + console plugin, gzip chunks, disk layout, player",
+    "3": "Errors + network — handlers, fetch/XHR patch, dedup",
+    "4": "Incident view + report widget — slice assembly, the killer feature",
+    "5": "Polish & release — aggregates, auth, packaging, docs, MIT"
+  },
+  "tasks": [
+    {
+      "id": "p0-monorepo",
+      "phase": 0,
+      "component": "repo",
+      "title": "pnpm workspace + repo foundation",
+      "depends_on": [],
+      "exit_check": "`pnpm install` succeeds at the root; workspace resolves sdk/ and examples/*",
+      "status": "done"
+    },
+    {
+      "id": "p0-collector-skeleton",
+      "phase": 0,
+      "component": "collector",
+      "title": "Go module skeleton (spyglassd)",
+      "depends_on": [],
+      "exit_check": "`go build ./...` in collector/ succeeds; `spyglassd --config` flag parses",
+      "status": "done"
+    },
+    {
+      "id": "p0-sdk-skeleton",
+      "phase": 0,
+      "component": "sdk",
+      "title": "@spyglass/sdk package + esbuild + vitest",
+      "depends_on": [
+        "p0-monorepo"
+      ],
+      "exit_check": "`pnpm --filter @spyglass/sdk build` emits a bundle; `pnpm --filter @spyglass/sdk test` runs",
+      "status": "done"
+    },
+    {
+      "id": "p0-example-app",
+      "phase": 0,
+      "component": "example",
+      "title": "examples/nextjs-demo skeleton",
+      "depends_on": [
+        "p0-monorepo",
+        "p0-sdk-skeleton"
+      ],
+      "exit_check": "`pnpm --filter nextjs-demo dev` boots a Next app that imports @spyglass/sdk from the workspace",
+      "status": "done"
+    },
+    {
+      "id": "p0-config-example",
+      "phase": 0,
+      "component": "repo",
+      "title": "spyglass.config.example.json",
+      "depends_on": [],
+      "exit_check": "Example config matches the schema in CLAUDE.md §6 exactly",
+      "status": "done"
+    },
+    {
+      "id": "p1-config-loader",
+      "phase": 1,
+      "component": "collector",
+      "title": "Config loading + validation",
+      "depends_on": [
+        "p0-collector-skeleton",
+        "p0-config-example"
+      ],
+      "exit_check": "Loads spyglass.config.json, resolves env: refs, validates app keys; table-driven test green",
+      "status": "todo"
+    },
+    {
+      "id": "p1-schema-migration",
+      "phase": 1,
+      "component": "collector",
+      "title": "SQLite schema v1 + migration runner",
+      "depends_on": [
+        "p0-collector-skeleton"
+      ],
+      "exit_check": "Boot applies numbered migrations idempotently; events+sessions tables and indexes exist",
+      "status": "todo"
+    },
+    {
+      "id": "p1-store-open",
+      "phase": 1,
+      "component": "collector",
+      "title": "Store: open WAL DB + prepared inserts",
+      "depends_on": [
+        "p1-schema-migration"
+      ],
+      "exit_check": "Opens SQLite in WAL mode, runs migrations, exposes a batched-insert API",
+      "status": "todo"
+    },
+    {
+      "id": "p1-events-ingest",
+      "phase": 1,
+      "component": "collector",
+      "title": "POST /v1/events (auth, CORS, limits)",
+      "depends_on": [
+        "p1-store-open",
+        "p1-config-loader"
+      ],
+      "exit_check": "Batched JSON inserted in one tx; app-key checked; CORS allowlist + size cap + rate limit enforced; table-driven test",
+      "status": "todo"
+    },
+    {
+      "id": "p1-query-events",
+      "phase": 1,
+      "component": "collector",
+      "title": "GET /v1/query/events + /v1/query/users",
+      "depends_on": [
+        "p1-store-open"
+      ],
+      "exit_check": "Filtered event stream (user/type/from/to) and active-users list return correct JSON; table-driven test",
+      "status": "todo"
+    },
+    {
+      "id": "p1-http-server",
+      "phase": 1,
+      "component": "collector",
+      "title": "HTTP server + /v1 router + shutdown",
+      "depends_on": [
+        "p1-config-loader"
+      ],
+      "exit_check": "spyglassd boots, serves /v1 routes from config listen addr, graceful shutdown on SIGINT",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-init",
+      "phase": 1,
+      "component": "sdk",
+      "title": "spyglass.init() + config + types",
+      "depends_on": [
+        "p0-sdk-skeleton"
+      ],
+      "exit_check": "init() validates config, stores singleton state; vitest unit test",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-session",
+      "phase": 1,
+      "component": "sdk",
+      "title": "Session id + 30min idle reset",
+      "depends_on": [
+        "p1-sdk-init"
+      ],
+      "exit_check": "Random id in sessionStorage; new id after 30min idle; vitest with faked time",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-queue",
+      "phase": 1,
+      "component": "sdk",
+      "title": "Event queue + batching + transport",
+      "depends_on": [
+        "p1-sdk-init"
+      ],
+      "exit_check": "Flush every 5s or 20 events via fetch POST to /v1/events; vitest",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-beacon",
+      "phase": 1,
+      "component": "sdk",
+      "title": "sendBeacon on tab close",
+      "depends_on": [
+        "p1-sdk-queue"
+      ],
+      "exit_check": "visibilitychange/pagehide flushes the queue via navigator.sendBeacon",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-capture",
+      "phase": 1,
+      "component": "sdk",
+      "title": "capture(), pageview(), setUser()",
+      "depends_on": [
+        "p1-sdk-queue",
+        "p1-sdk-session"
+      ],
+      "exit_check": "capture/pageview/setUser enqueue correctly-shaped events; vitest",
+      "status": "todo"
+    },
+    {
+      "id": "p1-sdk-next-provider",
+      "phase": 1,
+      "component": "sdk",
+      "title": "<SpyglassProvider> app-router pageviews",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "Provider auto-fires pageviews on route change via usePathname/useSearchParams",
+      "status": "todo"
+    },
+    {
+      "id": "p1-dashboard-shell",
+      "phase": 1,
+      "component": "dashboard",
+      "title": "Preact dashboard shell + Go embed",
+      "depends_on": [
+        "p0-collector-skeleton",
+        "p0-monorepo"
+      ],
+      "exit_check": "`GET /` serves the embedded Preact SPA built by esbuild",
+      "status": "todo"
+    },
+    {
+      "id": "p1-dashboard-livefeed",
+      "phase": 1,
+      "component": "dashboard",
+      "title": "Live feed view + filters",
+      "depends_on": [
+        "p1-dashboard-shell",
+        "p1-query-events"
+      ],
+      "exit_check": "Live feed lists events from /v1/query/events, filterable by user/type/app — PHASE 1 EXIT",
+      "status": "todo"
+    },
+    {
+      "id": "p2-sdk-rrweb",
+      "phase": 2,
+      "component": "sdk",
+      "title": "rrweb record + console plugin (lazy)",
+      "depends_on": [
+        "p1-sdk-init"
+      ],
+      "exit_check": "When replay:true, rrweb + console plugin load as a separate chunk and start recording",
+      "status": "todo"
+    },
+    {
+      "id": "p2-sdk-chunk-gzip",
+      "phase": 2,
+      "component": "sdk",
+      "title": "~10s chunking + CompressionStream gzip",
+      "depends_on": [
+        "p2-sdk-rrweb"
+      ],
+      "exit_check": "rrweb events batched into ~10s gzipped chunks via native CompressionStream",
+      "status": "todo"
+    },
+    {
+      "id": "p2-sdk-replay-upload",
+      "phase": 2,
+      "component": "sdk",
+      "title": "Replay upload + backpressure",
+      "depends_on": [
+        "p2-sdk-chunk-gzip",
+        "p1-sdk-queue"
+      ],
+      "exit_check": "POST /v1/replay?session=&seq=; under backpressure, drop replay before events",
+      "status": "todo"
+    },
+    {
+      "id": "p2-replay-ingest",
+      "phase": 2,
+      "component": "collector",
+      "title": "POST /v1/replay → disk",
+      "depends_on": [
+        "p1-store-open"
+      ],
+      "exit_check": "Gzipped chunk written to disk; sessions.chunk_count bumped; table-driven test",
+      "status": "todo"
+    },
+    {
+      "id": "p2-replay-disk-layout",
+      "phase": 2,
+      "component": "collector",
+      "title": "Replay disk layout + meta.json seek index",
+      "depends_on": [
+        "p2-replay-ingest"
+      ],
+      "exit_check": "replays/{session}/ holds chunks + meta.json timestamp index for seeking",
+      "status": "todo"
+    },
+    {
+      "id": "p2-replay-manifest",
+      "phase": 2,
+      "component": "collector",
+      "title": "GET /v1/sessions/:id/replay (manifest + stream)",
+      "depends_on": [
+        "p2-replay-disk-layout"
+      ],
+      "exit_check": "Returns chunk manifest and streams individual chunks for the player",
+      "status": "todo"
+    },
+    {
+      "id": "p2-retention-sweep",
+      "phase": 2,
+      "component": "collector",
+      "title": "Daily retention sweep",
+      "depends_on": [
+        "p2-replay-disk-layout"
+      ],
+      "exit_check": "Daily in-process sweep deletes replay dirs older than replays_days (events_days=0 keeps forever)",
+      "status": "todo"
+    },
+    {
+      "id": "p2-dashboard-player",
+      "phase": 2,
+      "component": "dashboard",
+      "title": "rrweb-player view + console pane",
+      "depends_on": [
+        "p1-dashboard-shell",
+        "p2-replay-manifest"
+      ],
+      "exit_check": "Watch any session end-to-end with seek + console pane — PHASE 2 EXIT",
+      "status": "todo"
+    },
+    {
+      "id": "p3-sdk-errors",
+      "phase": 3,
+      "component": "sdk",
+      "title": "Error handlers + dedup",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "onerror/unhandledrejection/console.error captured as error events, deduped within 5s; vitest",
+      "status": "todo"
+    },
+    {
+      "id": "p3-sdk-network",
+      "phase": 3,
+      "component": "sdk",
+      "title": "fetch + XHR interception (metadata)",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "fetch/XHR produce network events with method/url/status/duration/sizes; auth headers never recorded",
+      "status": "todo"
+    },
+    {
+      "id": "p3-sdk-network-bodies",
+      "phase": 3,
+      "component": "sdk",
+      "title": "Opt-in body capture (allow-list)",
+      "depends_on": [
+        "p3-sdk-network"
+      ],
+      "exit_check": "Bodies captured only for allow-listed route prefixes, truncated to 2KB",
+      "status": "todo"
+    },
+    {
+      "id": "p3-dashboard-timeline",
+      "phase": 3,
+      "component": "dashboard",
+      "title": "User timeline view",
+      "depends_on": [
+        "p1-dashboard-shell",
+        "p1-query-events"
+      ],
+      "exit_check": "Pick user → sessions → chronological breadcrumbs (pageviews, captures, network, errors)",
+      "status": "todo"
+    },
+    {
+      "id": "p3-dashboard-errors",
+      "phase": 3,
+      "component": "dashboard",
+      "title": "Error list + network rows",
+      "depends_on": [
+        "p3-dashboard-timeline"
+      ],
+      "exit_check": "Throw in dev app → error appears with stack, linked to its session — PHASE 3 EXIT",
+      "status": "todo"
+    },
+    {
+      "id": "p4-sdk-report-widget",
+      "phase": 4,
+      "component": "sdk",
+      "title": "Bug-report widget (Shadow DOM)",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "Floating button → comment box → emits bug_report event; Shadow DOM, no style bleed",
+      "status": "todo"
+    },
+    {
+      "id": "p4-sdk-report-api",
+      "phase": 4,
+      "component": "sdk",
+      "title": "spyglass.report() programmatic",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "report('msg') emits a bug_report event without the widget UI; vitest",
+      "status": "todo"
+    },
+    {
+      "id": "p4-sdk-autocapture",
+      "phase": 4,
+      "component": "sdk",
+      "title": "Opt-in autocapture (click + change)",
+      "depends_on": [
+        "p1-sdk-capture"
+      ],
+      "exit_check": "autocapture:true lazy-loads a module recording clicks + form changes; zero bytes when off",
+      "status": "todo"
+    },
+    {
+      "id": "p4-incident-slice",
+      "phase": 4,
+      "component": "collector",
+      "title": "GET /v1/incidents/:event_id (slice assembly)",
+      "depends_on": [
+        "p1-query-events",
+        "p2-replay-manifest"
+      ],
+      "exit_check": "For an error/bug_report event, assemble [ts−60s, ts+10s] slice: events + replay cue + network + console refs",
+      "status": "todo"
+    },
+    {
+      "id": "p4-dashboard-incident",
+      "phase": 4,
+      "component": "dashboard",
+      "title": "Incident view (the killer page)",
+      "depends_on": [
+        "p2-dashboard-player",
+        "p4-incident-slice",
+        "p3-dashboard-errors"
+      ],
+      "exit_check": "Click report → open incident → replay cued to that exact moment — PHASE 4 EXIT",
+      "status": "todo"
+    },
+    {
+      "id": "p5-funnel-query",
+      "phase": 5,
+      "component": "collector",
+      "title": "GET /v1/query/funnel",
+      "depends_on": [
+        "p1-store-open"
+      ],
+      "exit_check": "?steps=a,b,c returns a simple SQL step funnel; table-driven test",
+      "status": "todo"
+    },
+    {
+      "id": "p5-dashboard-aggregates",
+      "phase": 5,
+      "component": "dashboard",
+      "title": "Aggregates view (DAU, top events/pages, errors)",
+      "depends_on": [
+        "p1-dashboard-shell",
+        "p1-query-events"
+      ],
+      "exit_check": "DAU, top events, top pages, error counts by day via GROUP BY",
+      "status": "todo"
+    },
+    {
+      "id": "p5-dashboard-auth",
+      "phase": 5,
+      "component": "collector",
+      "title": "Dashboard shared-password auth",
+      "depends_on": [
+        "p1-http-server",
+        "p1-dashboard-shell"
+      ],
+      "exit_check": "Dashboard + query routes gated by the single shared password (auth.dashboard_password)",
+      "status": "todo"
+    },
+    {
+      "id": "p5-packaging",
+      "phase": 5,
+      "component": "collector",
+      "title": "Packaging: cross-compile + npx wrapper + Docker",
+      "depends_on": [
+        "p1-http-server"
+      ],
+      "exit_check": "Static binaries for darwin/linux amd64+arm64; npx/install path; Docker example",
+      "status": "todo"
+    },
+    {
+      "id": "p5-docs-readme",
+      "phase": 5,
+      "component": "docs",
+      "title": "README + docs MDX + MIT license",
+      "depends_on": [],
+      "exit_check": "README in dynamoip voice; docs/ MDX expanded; MIT license present",
+      "status": "todo"
+    },
+    {
+      "id": "p5-sdk-publish",
+      "phase": 5,
+      "component": "sdk",
+      "title": "Publish @spyglass/sdk + size budget gate",
+      "depends_on": [
+        "p1-sdk-capture",
+        "p2-sdk-replay-upload",
+        "p3-sdk-network",
+        "p4-sdk-report-widget"
+      ],
+      "exit_check": "Core ≤5KB gz (rrweb lazy); package publishes to npm",
+      "status": "todo"
+    },
+    {
+      "id": "p5-slack-webhook",
+      "phase": 5,
+      "component": "collector",
+      "title": "Optional Slack webhook on bug_report",
+      "depends_on": [
+        "p4-incident-slice"
+      ],
+      "exit_check": "When configured, a new bug_report POSTs a link to the incident to a Slack webhook; off by default",
+      "status": "todo"
+    }
+  ]
+}

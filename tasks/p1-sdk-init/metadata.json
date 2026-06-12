@@ -1,0 +1,16 @@
+{
+  "id": "p1-sdk-init",
+  "phase": 1,
+  "component": "sdk",
+  "title": "spyglass.init() + config + types",
+  "depends_on": [
+    "p0-sdk-skeleton"
+  ],
+  "src_files": [
+    "sdk/src/core.ts",
+    "sdk/src/types.ts"
+  ],
+  "exit_check": "init() validates config, stores singleton state; vitest unit test",
+  "refs": "§5",
+  "status": "todo"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "p1-sdk-beacon",
+  "phase": 1,
+  "component": "sdk",
+  "title": "sendBeacon on tab close",
+  "depends_on": [
+    "p1-sdk-queue"
+  ],
+  "src_files": [
+    "sdk/src/beacon.ts"
+  ],
+  "exit_check": "visibilitychange/pagehide flushes the queue via navigator.sendBeacon",
+  "refs": "§5",
+  "status": "todo"
+}
