@@ -6,7 +6,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+
+	"github.com/foundanand/spyglass/collector/store"
 )
 
 // version is overridden at build time via -ldflags.
@@ -22,8 +25,22 @@ func main() {
 		return
 	}
 
-	// Phase 0: skeleton only. Config loading (p1-config-loader), the store
-	// (p1-store-open), and the HTTP server (p1-http-server) land in Phase 1.
-	fmt.Printf("spyglassd %s — config: %s\n", version, *configPath)
-	fmt.Fprintln(os.Stderr, "skeleton only: no server yet (see tasks/ phase 1)")
+	cfg, err := LoadConfig(*configPath)
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
+	if err := os.MkdirAll(cfg.DataDir, 0o755); err != nil {
+		log.Fatalf("create dataDir %q: %v", cfg.DataDir, err)
+	}
+
+	st, err := store.Open(cfg.DataDir)
+	if err != nil {
+		log.Fatalf("store: %v", err)
+	}
+	defer st.Close()
+
+	if err := run(cfg, st); err != nil {
+		log.Fatalf("server: %v", err)
+	}
 }

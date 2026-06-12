@@ -11,6 +11,6 @@
     "collector/query/users.go"
   ],
   "exit_check": "Filtered event stream (user/type/from/to) and active-users list return correct JSON; table-driven test",
-  "refs": "§6",
-  "status": "todo"
+  "refs": "\u00a76",
+  "status": "done"
 }

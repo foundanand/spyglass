@@ -10,6 +10,6 @@
     "collector/store/store.go"
   ],
   "exit_check": "Opens SQLite in WAL mode, runs migrations, exposes a batched-insert API",
-  "refs": "§3, §4",
-  "status": "todo"
+  "refs": "\u00a73, \u00a74",
+  "status": "done"
 }

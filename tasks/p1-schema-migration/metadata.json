@@ -11,6 +11,6 @@
     "collector/store/migrate.go"
   ],
   "exit_check": "Boot applies numbered migrations idempotently; events+sessions tables and indexes exist",
-  "refs": "§4, §12",
-  "status": "todo"
+  "refs": "\u00a74, \u00a712",
+  "status": "done"
 }

@@ -10,6 +10,6 @@
     "sdk/src/next.tsx"
   ],
   "exit_check": "Provider auto-fires pageviews on route change via usePathname/useSearchParams",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

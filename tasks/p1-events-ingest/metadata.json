@@ -11,6 +11,6 @@
     "collector/ingest/events.go"
   ],
   "exit_check": "Batched JSON inserted in one tx; app-key checked; CORS allowlist + size cap + rate limit enforced; table-driven test",
-  "refs": "§6, ingest-exposure (internet-exposed)",
-  "status": "todo"
+  "refs": "\u00a76, ingest-exposure (internet-exposed)",
+  "status": "done"
 }

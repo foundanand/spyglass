@@ -10,6 +10,6 @@
     "sdk/src/beacon.ts"
   ],
   "exit_check": "visibilitychange/pagehide flushes the queue via navigator.sendBeacon",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

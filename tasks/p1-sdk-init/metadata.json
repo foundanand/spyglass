@@ -11,6 +11,6 @@
     "sdk/src/types.ts"
   ],
   "exit_check": "init() validates config, stores singleton state; vitest unit test",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

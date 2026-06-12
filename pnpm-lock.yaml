@@ -12,6 +12,16 @@ importers:
         specifier: ^3.4.2
         version: 3.8.4
 
+  collector/dashboard/ui:
+    dependencies:
+      preact:
+        specifier: ^10.25.0
+        version: 10.29.2
+    devDependencies:
+      esbuild:
+        specifier: ^0.25.0
+        version: 0.25.12
+
   examples/nextjs-demo:
     dependencies:
       '@spyglass/sdk':
@@ -42,12 +52,21 @@ importers:
 
   sdk:
     devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
       esbuild:
         specifier: ^0.25.0
         version: 0.25.12
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      next:
+        specifier: ^15.1.0
+        version: 15.5.19(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -962,6 +981,9 @@ packages:
   postcss@8.5.15:
     resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
+
+  preact@10.29.2:
+    resolution: {integrity: sha512-7tNmwg/7mzzAoB/8kSg6Hl37JraAZw3Z3A0JSY7VXlZwo82Xn0G7wKbNNs2qoF4ZEEsQGTwDAroNdqKs1ofJxQ==}
 
   prettier@3.8.4:
     resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
@@ -1895,6 +1917,8 @@ snapshots:
       nanoid: 3.3.12
       picocolors: 1.1.1
       source-map-js: 1.2.1
+
+  preact@10.29.2: {}
 
   prettier@3.8.4: {}
 

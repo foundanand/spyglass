@@ -1,13 +1,13 @@
 {
   "schema": "spyglass-build/v0",
-  "note": "Build broken into self-contained tasks, grouped by the phases in CLAUDE.md §10. Each task has its own folder (task.md + metadata.json) and is sized for a smaller model or a parallel run. Respect depends_on ordering. Do not start phase N+1 with phase N broken.",
+  "note": "Build broken into self-contained tasks, grouped by the phases in CLAUDE.md \u00a710. Each task has its own folder (task.md + metadata.json) and is sized for a smaller model or a parallel run. Respect depends_on ordering. Do not start phase N+1 with phase N broken.",
   "phases": {
-    "0": "Scaffold — pnpm workspace, Go module, SDK package + esbuild, example app, config",
-    "1": "Events core (the spine) — collector ingest + SQLite + SDK basics + live-feed dashboard",
-    "2": "Replay — rrweb + console plugin, gzip chunks, disk layout, player",
-    "3": "Errors + network — handlers, fetch/XHR patch, dedup",
-    "4": "Incident view + report widget — slice assembly, the killer feature",
-    "5": "Polish & release — aggregates, auth, packaging, docs, MIT"
+    "0": "Scaffold \u2014 pnpm workspace, Go module, SDK package + esbuild, example app, config",
+    "1": "Events core (the spine) \u2014 collector ingest + SQLite + SDK basics + live-feed dashboard",
+    "2": "Replay \u2014 rrweb + console plugin, gzip chunks, disk layout, player",
+    "3": "Errors + network \u2014 handlers, fetch/XHR patch, dedup",
+    "4": "Incident view + report widget \u2014 slice assembly, the killer feature",
+    "5": "Polish & release \u2014 aggregates, auth, packaging, docs, MIT"
   },
   "tasks": [
     {
@@ -57,7 +57,7 @@
       "component": "repo",
       "title": "spyglass.config.example.json",
       "depends_on": [],
-      "exit_check": "Example config matches the schema in CLAUDE.md §6 exactly",
+      "exit_check": "Example config matches the schema in CLAUDE.md \u00a76 exactly",
       "status": "done"
     },
     {
@@ -70,7 +70,7 @@
         "p0-config-example"
       ],
       "exit_check": "Loads spyglass.config.json, resolves env: refs, validates app keys; table-driven test green",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-schema-migration",
@@ -81,7 +81,7 @@
         "p0-collector-skeleton"
       ],
       "exit_check": "Boot applies numbered migrations idempotently; events+sessions tables and indexes exist",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-store-open",
@@ -92,7 +92,7 @@
         "p1-schema-migration"
       ],
       "exit_check": "Opens SQLite in WAL mode, runs migrations, exposes a batched-insert API",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-events-ingest",
@@ -104,7 +104,7 @@
         "p1-config-loader"
       ],
       "exit_check": "Batched JSON inserted in one tx; app-key checked; CORS allowlist + size cap + rate limit enforced; table-driven test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-query-events",
@@ -115,7 +115,7 @@
         "p1-store-open"
       ],
       "exit_check": "Filtered event stream (user/type/from/to) and active-users list return correct JSON; table-driven test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-http-server",
@@ -126,7 +126,7 @@
         "p1-config-loader"
       ],
       "exit_check": "spyglassd boots, serves /v1 routes from config listen addr, graceful shutdown on SIGINT",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-init",
@@ -137,7 +137,7 @@
         "p0-sdk-skeleton"
       ],
       "exit_check": "init() validates config, stores singleton state; vitest unit test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-session",
@@ -148,7 +148,7 @@
         "p1-sdk-init"
       ],
       "exit_check": "Random id in sessionStorage; new id after 30min idle; vitest with faked time",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-queue",
@@ -159,7 +159,7 @@
         "p1-sdk-init"
       ],
       "exit_check": "Flush every 5s or 20 events via fetch POST to /v1/events; vitest",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-beacon",
@@ -170,7 +170,7 @@
         "p1-sdk-queue"
       ],
       "exit_check": "visibilitychange/pagehide flushes the queue via navigator.sendBeacon",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-capture",
@@ -182,7 +182,7 @@
         "p1-sdk-session"
       ],
       "exit_check": "capture/pageview/setUser enqueue correctly-shaped events; vitest",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-sdk-next-provider",
@@ -193,7 +193,7 @@
         "p1-sdk-capture"
       ],
       "exit_check": "Provider auto-fires pageviews on route change via usePathname/useSearchParams",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-dashboard-shell",
@@ -205,7 +205,7 @@
         "p0-monorepo"
       ],
       "exit_check": "`GET /` serves the embedded Preact SPA built by esbuild",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p1-dashboard-livefeed",
@@ -216,8 +216,8 @@
         "p1-dashboard-shell",
         "p1-query-events"
       ],
-      "exit_check": "Live feed lists events from /v1/query/events, filterable by user/type/app — PHASE 1 EXIT",
-      "status": "todo"
+      "exit_check": "Live feed lists events from /v1/query/events, filterable by user/type/app \u2014 PHASE 1 EXIT",
+      "status": "done"
     },
     {
       "id": "p2-sdk-rrweb",
@@ -257,7 +257,7 @@
       "id": "p2-replay-ingest",
       "phase": 2,
       "component": "collector",
-      "title": "POST /v1/replay → disk",
+      "title": "POST /v1/replay \u2192 disk",
       "depends_on": [
         "p1-store-open"
       ],
@@ -306,7 +306,7 @@
         "p1-dashboard-shell",
         "p2-replay-manifest"
       ],
-      "exit_check": "Watch any session end-to-end with seek + console pane — PHASE 2 EXIT",
+      "exit_check": "Watch any session end-to-end with seek + console pane \u2014 PHASE 2 EXIT",
       "status": "todo"
     },
     {
@@ -351,7 +351,7 @@
         "p1-dashboard-shell",
         "p1-query-events"
       ],
-      "exit_check": "Pick user → sessions → chronological breadcrumbs (pageviews, captures, network, errors)",
+      "exit_check": "Pick user \u2192 sessions \u2192 chronological breadcrumbs (pageviews, captures, network, errors)",
       "status": "todo"
     },
     {
@@ -362,7 +362,7 @@
       "depends_on": [
         "p3-dashboard-timeline"
       ],
-      "exit_check": "Throw in dev app → error appears with stack, linked to its session — PHASE 3 EXIT",
+      "exit_check": "Throw in dev app \u2192 error appears with stack, linked to its session \u2014 PHASE 3 EXIT",
       "status": "todo"
     },
     {
@@ -373,7 +373,7 @@
       "depends_on": [
         "p1-sdk-capture"
       ],
-      "exit_check": "Floating button → comment box → emits bug_report event; Shadow DOM, no style bleed",
+      "exit_check": "Floating button \u2192 comment box \u2192 emits bug_report event; Shadow DOM, no style bleed",
       "status": "todo"
     },
     {
@@ -407,7 +407,7 @@
         "p1-query-events",
         "p2-replay-manifest"
       ],
-      "exit_check": "For an error/bug_report event, assemble [ts−60s, ts+10s] slice: events + replay cue + network + console refs",
+      "exit_check": "For an error/bug_report event, assemble [ts\u221260s, ts+10s] slice: events + replay cue + network + console refs",
       "status": "todo"
     },
     {
@@ -420,7 +420,7 @@
         "p4-incident-slice",
         "p3-dashboard-errors"
       ],
-      "exit_check": "Click report → open incident → replay cued to that exact moment — PHASE 4 EXIT",
+      "exit_check": "Click report \u2192 open incident \u2192 replay cued to that exact moment \u2014 PHASE 4 EXIT",
       "status": "todo"
     },
     {
@@ -489,7 +489,7 @@
         "p3-sdk-network",
         "p4-sdk-report-widget"
       ],
-      "exit_check": "Core ≤5KB gz (rrweb lazy); package publishes to npm",
+      "exit_check": "Core \u22645KB gz (rrweb lazy); package publishes to npm",
       "status": "todo"
     },
     {

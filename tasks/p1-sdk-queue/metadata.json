@@ -11,6 +11,6 @@
     "sdk/src/transport.ts"
   ],
   "exit_check": "Flush every 5s or 20 events via fetch POST to /v1/events; vitest",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

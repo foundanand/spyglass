@@ -11,6 +11,6 @@
     "collector/main.go"
   ],
   "exit_check": "spyglassd boots, serves /v1 routes from config listen addr, graceful shutdown on SIGINT",
-  "refs": "§6",
-  "status": "todo"
+  "refs": "\u00a76",
+  "status": "done"
 }

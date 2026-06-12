@@ -10,6 +10,6 @@
     "sdk/src/session.ts"
   ],
   "exit_check": "Random id in sessionStorage; new id after 30min idle; vitest with faked time",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

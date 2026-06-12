@@ -12,6 +12,6 @@
     "collector/dashboard/embed.go"
   ],
   "exit_check": "`GET /` serves the embedded Preact SPA built by esbuild",
-  "refs": "§3, §7",
-  "status": "todo"
+  "refs": "\u00a73, \u00a77",
+  "status": "done"
 }

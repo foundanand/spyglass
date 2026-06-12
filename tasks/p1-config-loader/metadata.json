@@ -11,6 +11,6 @@
     "collector/config.go"
   ],
   "exit_check": "Loads spyglass.config.json, resolves env: refs, validates app keys; table-driven test green",
-  "refs": "§6",
-  "status": "todo"
+  "refs": "\u00a76",
+  "status": "done"
 }

@@ -11,6 +11,6 @@
     "sdk/src/capture.ts"
   ],
   "exit_check": "capture/pageview/setUser enqueue correctly-shaped events; vitest",
-  "refs": "§5",
-  "status": "todo"
+  "refs": "\u00a75",
+  "status": "done"
 }

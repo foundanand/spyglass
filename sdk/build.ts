@@ -8,7 +8,7 @@ import { rmSync } from "node:fs";
 rmSync("dist", { recursive: true, force: true });
 
 await build({
-  entryPoints: ["src/index.ts", "src/next.ts"],
+  entryPoints: ["src/index.ts", "src/next.tsx"],
   outdir: "dist",
   bundle: true,
   format: "esm",
@@ -16,9 +16,11 @@ await build({
   minify: true,
   sourcemap: true,
   target: "es2022",
-  // rrweb is the only runtime dep and is lazy-imported; never eager-bundle it,
-  // and keep React out of the core bundle (only the /next entry touches it).
-  external: ["rrweb", "rrweb-player", "react", "react-dom"],
+  jsx: "automatic",
+  jsxImportSource: "react",
+  // rrweb is the only runtime dep and is lazy-imported; never eager-bundle it.
+  // Keep React and Next out of the core bundle (only the /next entry touches them).
+  external: ["rrweb", "rrweb-player", "react", "react-dom", "next"],
 });
 
 // Type declarations.

@@ -1,17 +1,38 @@
-// @spyglass/sdk — public entry. Phase 0 ships only the shape; init/capture and
-// the rest land across Phase 1+ (see tasks/). Keep this core tiny (§5: ≤5KB gz);
-// rrweb and autocapture must be lazy-imported, never referenced from here.
+// @spyglass/sdk — public entry. Keep this core tiny (§5: ≤5KB gz).
+// rrweb and autocapture are lazy-imported by their own modules, never from here.
 
-/** Library version, stamped at publish time. */
 export const VERSION = "0.0.0";
 
-/**
- * The singleton entry point. Methods are added by their Phase 1+ tasks
- * (p1-sdk-init, p1-sdk-capture, p4-sdk-report-*). Placeholder for now so the
- * package has a stable export surface.
- */
+import { init as _init, updateUser } from "./core.js";
+import { registerBeacon } from "./beacon.js";
+import { capture, pageview } from "./capture.js";
+import { flush } from "./queue.js";
+import type { SpyglassConfig, UserConfig } from "./types.js";
+
 export const spyglass = {
   version: VERSION,
-} as const;
 
-export type Spyglass = typeof spyglass;
+  init(config: SpyglassConfig): void {
+    _init(config);
+    registerBeacon();
+  },
+
+  capture(name: string, props?: Record<string, unknown>): void {
+    capture(name, props);
+  },
+
+  pageview(url?: string): void {
+    pageview(url);
+  },
+
+  setUser(user: UserConfig): void {
+    updateUser(user);
+  },
+
+  /** Force-flush the event queue (e.g. before programmatic navigation). */
+  flush(): void {
+    flush();
+  },
+};
+
+export type { SpyglassConfig, UserConfig } from "./types.js";
