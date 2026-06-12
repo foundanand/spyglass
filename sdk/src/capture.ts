@@ -25,6 +25,11 @@ export function pageview(url?: string): void {
   enqueue({ ...base(), type: "pageview", name: resolvedUrl, url: resolvedUrl });
 }
 
+/** Submit a programmatic bug report. */
+export function report(comment: string, extra?: Record<string, unknown>): void {
+  enqueue({ ...base(), type: "bug_report", name: comment, props: extra });
+}
+
 /** Update the identified user; all subsequent events use the new identity. */
 export function setUser(user: UserConfig): void {
   updateUser(user);
