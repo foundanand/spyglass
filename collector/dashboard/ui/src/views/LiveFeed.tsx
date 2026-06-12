@@ -12,6 +12,10 @@ interface Event {
   props?: Record<string, unknown>;
 }
 
+interface LiveFeedProps {
+  onOpenIncident: (id: number) => void;
+}
+
 const TYPE_BADGES: Record<string, string> = {
   event: "badge-event",
   pageview: "badge-pageview",
@@ -29,7 +33,7 @@ function fmtProps(props?: Record<string, unknown>) {
   return JSON.stringify(props);
 }
 
-export function LiveFeed() {
+export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [filterUser, setFilterUser] = useState("");
   const [filterType, setFilterType] = useState("");
@@ -68,6 +72,8 @@ export function LiveFeed() {
     const timer = setInterval(poll, 3000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [filterUser, filterType, filterApp]);
+
+  const isIncidentable = (type: string) => type === "error" || type === "bug_report";
 
   return (
     <div>
@@ -109,7 +115,12 @@ export function LiveFeed() {
             <tr><td colSpan={6} class="empty">no events — run the SDK and start capturing</td></tr>
           )}
           {events.map((e) => (
-            <tr key={e.id}>
+            <tr
+              key={e.id}
+              class={isIncidentable(e.type) ? "row-clickable" : ""}
+              onClick={isIncidentable(e.type) ? () => onOpenIncident(e.id) : undefined}
+              title={isIncidentable(e.type) ? "Open incident view" : undefined}
+            >
               <td class="ts">{fmtTs(e.ts)}</td>
               <td><span class={`badge ${TYPE_BADGES[e.type] ?? "badge-event"}`}>{e.type}</span></td>
               <td>{e.user_id}</td>

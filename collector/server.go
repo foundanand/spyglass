@@ -26,6 +26,7 @@ func run(cfg *Config, st *store.Store) error {
 	}
 
 	replayHandler := query.NewReplayHandler(cfg.DataDir)
+	incidentHandler := query.NewIncidentHandler(st, cfg.DataDir)
 
 	mux.Handle("POST /v1/events", ingest.NewEventsHandler(st, apps))
 	mux.Handle("OPTIONS /v1/events", ingest.NewEventsHandler(st, apps))
@@ -34,6 +35,7 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("GET /v1/query/users", query.NewUsersHandler(st))
 	mux.Handle("GET /v1/query/sessions", query.NewSessionsHandler(st))
 	mux.Handle("GET /v1/sessions/", replayHandler)
+	mux.Handle("GET /v1/incidents/", incidentHandler)
 	mux.Handle("/", dashboard.Handler())
 
 	retention.StartSweep(cfg.DataDir, cfg.Retention.ReplaysDays)

@@ -22,6 +22,9 @@ export const spyglass = {
     if (config.replay !== false) {
       void import("./replay.js").then((m) => m.startReplay());
     }
+    if (config.reportWidget !== false) {
+      void import("./widget.js").then((m) => m.initWidget());
+    }
   },
 
   capture(name: string, props?: Record<string, unknown>): void {

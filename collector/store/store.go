@@ -249,6 +249,64 @@ type Session struct {
 	Meta       map[string]interface{} `json:"meta,omitempty"`
 }
 
+// GetEventByID returns a single event by primary key, or nil if not found.
+func (s *Store) GetEventByID(id int64) (*Event, error) {
+	row := s.db.QueryRow(
+		`SELECT id, ts, app, user_id, session_id, type, name, url, props FROM events WHERE id = ?`, id,
+	)
+	var e Event
+	var url, props sql.NullString
+	if err := row.Scan(&e.ID, &e.Ts, &e.App, &e.UserID, &e.SessionID, &e.Type, &e.Name, &url, &props); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if url.Valid {
+		e.URL = url.String
+	}
+	if props.Valid && props.String != "" {
+		if err := json.Unmarshal([]byte(props.String), &e.Props); err != nil {
+			return nil, fmt.Errorf("parse props: %w", err)
+		}
+	}
+	return &e, nil
+}
+
+// QueryEventsBySessionWindow returns all events for a session in [from, to] ordered by ts asc.
+func (s *Store) QueryEventsBySessionWindow(sessionID string, from, to int64) ([]Event, error) {
+	rows, err := s.db.Query(
+		`SELECT id, ts, app, user_id, session_id, type, name, url, props
+		 FROM events
+		 WHERE session_id = ? AND ts >= ? AND ts <= ?
+		 ORDER BY ts ASC`,
+		sessionID, from, to,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query session window: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Event
+	for rows.Next() {
+		var e Event
+		var url, props sql.NullString
+		if err := rows.Scan(&e.ID, &e.Ts, &e.App, &e.UserID, &e.SessionID, &e.Type, &e.Name, &url, &props); err != nil {
+			return nil, err
+		}
+		if url.Valid {
+			e.URL = url.String
+		}
+		if props.Valid && props.String != "" {
+			if err := json.Unmarshal([]byte(props.String), &e.Props); err != nil {
+				return nil, fmt.Errorf("parse props: %w", err)
+			}
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // ListSessions returns sessions ordered by last_seen desc.
 func (s *Store) ListSessions(limit int) ([]Session, error) {
 	if limit <= 0 || limit > 500 {
