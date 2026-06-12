@@ -11,5 +11,5 @@
   ],
   "exit_check": "Daily in-process sweep deletes replay dirs older than replays_days (events_days=0 keeps forever)",
   "refs": "§6, §8",
-  "status": "todo"
+  "status": "done"
 }

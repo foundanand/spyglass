@@ -12,5 +12,5 @@
   ],
   "exit_check": "Watch any session end-to-end with seek + console pane — PHASE 2 EXIT",
   "refs": "§7.3",
-  "status": "todo"
+  "status": "done"
 }

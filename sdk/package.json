@@ -24,6 +24,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@rrweb/rrweb-plugin-console-record": "^2.0.0-alpha.20",
+    "rrweb": "^2.0.1"
+  },
   "devDependencies": {
     "@types/react": "^19.0.0",
     "esbuild": "^0.25.0",

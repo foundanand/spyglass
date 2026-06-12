@@ -11,5 +11,5 @@
   ],
   "exit_check": "replays/{session}/ holds chunks + meta.json timestamp index for seeking",
   "refs": "§4",
-  "status": "todo"
+  "status": "done"
 }

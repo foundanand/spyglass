@@ -11,5 +11,5 @@
   ],
   "exit_check": "Returns chunk manifest and streams individual chunks for the player",
   "refs": "§6, §7.3",
-  "status": "todo"
+  "status": "done"
 }

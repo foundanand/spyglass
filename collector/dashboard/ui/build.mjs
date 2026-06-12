@@ -4,8 +4,8 @@ import { copyFileSync, mkdirSync } from "node:fs";
 const watch = process.argv.includes("--watch");
 
 const opts = {
-  entryPoints: ["src/main.tsx"],
-  outfile: "dist/app.js",
+  entryPoints: [{ in: "src/main.tsx", out: "app" }],
+  outdir: "dist",           // outdir so esbuild emits app.css alongside app.js
   bundle: true,
   format: "esm",
   minify: !watch,

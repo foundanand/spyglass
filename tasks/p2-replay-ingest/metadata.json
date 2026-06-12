@@ -11,5 +11,5 @@
   ],
   "exit_check": "Gzipped chunk written to disk; sessions.chunk_count bumped; table-driven test",
   "refs": "§4, §6",
-  "status": "todo"
+  "status": "done"
 }

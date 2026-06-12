@@ -15,6 +15,9 @@ export const spyglass = {
   init(config: SpyglassConfig): void {
     _init(config);
     registerBeacon();
+    if (config.replay !== false) {
+      void import("./replay.js").then((m) => m.startReplay());
+    }
   },
 
   capture(name: string, props?: Record<string, unknown>): void {

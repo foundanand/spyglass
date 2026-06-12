@@ -11,5 +11,5 @@
   ],
   "exit_check": "When replay:true, rrweb + console plugin load as a separate chunk and start recording",
   "refs": "§5, §3",
-  "status": "todo"
+  "status": "done"
 }

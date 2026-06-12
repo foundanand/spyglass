@@ -232,8 +232,50 @@ func (s *Store) QueryUsers(limit int) ([]UserSummary, error) {
 	return out, rows.Err()
 }
 
-// BumpChunkCount increments chunk_count for a session (used by Phase 2 replay ingest).
+// BumpChunkCount increments chunk_count for a session (replay ingest).
 func (s *Store) BumpChunkCount(sessionID string) error {
 	_, err := s.db.Exec(`UPDATE sessions SET chunk_count = chunk_count + 1 WHERE session_id = ?`, sessionID)
 	return err
+}
+
+// Session is one row in the sessions table.
+type Session struct {
+	SessionID  string                 `json:"session_id"`
+	App        string                 `json:"app"`
+	UserID     string                 `json:"user_id"`
+	StartedAt  int64                  `json:"started_at"`
+	LastSeen   int64                  `json:"last_seen"`
+	ChunkCount int                    `json:"chunk_count"`
+	Meta       map[string]interface{} `json:"meta,omitempty"`
+}
+
+// ListSessions returns sessions ordered by last_seen desc.
+func (s *Store) ListSessions(limit int) ([]Session, error) {
+	if limit <= 0 || limit > 500 {
+		limit = 100
+	}
+	rows, err := s.db.Query(`
+		SELECT session_id, app, user_id, started_at, last_seen, chunk_count, meta
+		FROM sessions
+		ORDER BY last_seen DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Session
+	for rows.Next() {
+		var sess Session
+		var meta sql.NullString
+		if err := rows.Scan(&sess.SessionID, &sess.App, &sess.UserID, &sess.StartedAt, &sess.LastSeen, &sess.ChunkCount, &meta); err != nil {
+			return nil, err
+		}
+		if meta.Valid && meta.String != "" {
+			_ = json.Unmarshal([]byte(meta.String), &sess.Meta)
+		}
+		out = append(out, sess)
+	}
+	return out, rows.Err()
 }

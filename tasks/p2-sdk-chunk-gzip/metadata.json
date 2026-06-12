@@ -11,5 +11,5 @@
   ],
   "exit_check": "rrweb events batched into ~10s gzipped chunks via native CompressionStream",
   "refs": "§4, §5",
-  "status": "todo"
+  "status": "done"
 }

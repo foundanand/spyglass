@@ -228,7 +228,7 @@
         "p1-sdk-init"
       ],
       "exit_check": "When replay:true, rrweb + console plugin load as a separate chunk and start recording",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-sdk-chunk-gzip",
@@ -239,7 +239,7 @@
         "p2-sdk-rrweb"
       ],
       "exit_check": "rrweb events batched into ~10s gzipped chunks via native CompressionStream",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-sdk-replay-upload",
@@ -251,7 +251,7 @@
         "p1-sdk-queue"
       ],
       "exit_check": "POST /v1/replay?session=&seq=; under backpressure, drop replay before events",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-replay-ingest",
@@ -262,7 +262,7 @@
         "p1-store-open"
       ],
       "exit_check": "Gzipped chunk written to disk; sessions.chunk_count bumped; table-driven test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-replay-disk-layout",
@@ -273,7 +273,7 @@
         "p2-replay-ingest"
       ],
       "exit_check": "replays/{session}/ holds chunks + meta.json timestamp index for seeking",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-replay-manifest",
@@ -284,7 +284,7 @@
         "p2-replay-disk-layout"
       ],
       "exit_check": "Returns chunk manifest and streams individual chunks for the player",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-retention-sweep",
@@ -295,7 +295,7 @@
         "p2-replay-disk-layout"
       ],
       "exit_check": "Daily in-process sweep deletes replay dirs older than replays_days (events_days=0 keeps forever)",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p2-dashboard-player",
@@ -307,7 +307,7 @@
         "p2-replay-manifest"
       ],
       "exit_check": "Watch any session end-to-end with seek + console pane \u2014 PHASE 2 EXIT",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p3-sdk-errors",

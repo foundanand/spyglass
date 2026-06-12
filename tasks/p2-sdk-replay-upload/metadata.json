@@ -12,5 +12,5 @@
   ],
   "exit_check": "POST /v1/replay?session=&seq=; under backpressure, drop replay before events",
   "refs": "§5",
-  "status": "todo"
+  "status": "done"
 }

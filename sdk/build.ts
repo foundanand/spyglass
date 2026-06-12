@@ -18,9 +18,9 @@ await build({
   target: "es2022",
   jsx: "automatic",
   jsxImportSource: "react",
-  // rrweb is the only runtime dep and is lazy-imported; never eager-bundle it.
-  // Keep React and Next out of the core bundle (only the /next entry touches them).
-  external: ["rrweb", "rrweb-player", "react", "react-dom", "next"],
+  // rrweb and its plugins are bundled into the lazy replay chunk (only loaded
+  // when replay:true). React/Next stay external — they live in the consumer app.
+  external: ["react", "react-dom", "next"],
 });
 
 // Type declarations.
