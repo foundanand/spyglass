@@ -8,21 +8,50 @@ import (
 	"time"
 )
 
+// EventDeleter purges events older than a cutoff. *store.Store satisfies it;
+// kept as an interface here to avoid a retention→store import dependency.
+type EventDeleter interface {
+	DeleteEventsBefore(cutoffMs int64) (int64, error)
+}
+
 // StartSweep starts a background goroutine that deletes replay directories whose
-// most-recently-modified file is older than retentionDays. It runs immediately on
-// startup and then once per 24 hours. A retentionDays of 0 is a no-op (keep forever).
-func StartSweep(dataDir string, retentionDays int) {
-	if retentionDays <= 0 {
+// most-recently-modified file is older than replaysDays, and (if eventsDays > 0)
+// events older than eventsDays. It runs immediately on startup and then once per
+// 24 hours. A day count of 0 means "keep forever" for that data type. If both are
+// 0 the sweep does nothing and no goroutine is started.
+func StartSweep(dataDir string, replaysDays int, ev EventDeleter, eventsDays int) {
+	if replaysDays <= 0 && eventsDays <= 0 {
 		return
 	}
+	run := func() {
+		if replaysDays > 0 {
+			runSweep(dataDir, replaysDays)
+		}
+		if eventsDays > 0 && ev != nil {
+			sweepEvents(ev, eventsDays)
+		}
+	}
 	go func() {
-		runSweep(dataDir, retentionDays)
+		run()
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
-			runSweep(dataDir, retentionDays)
+			run()
 		}
 	}()
+}
+
+// sweepEvents deletes events older than eventsDays.
+func sweepEvents(ev EventDeleter, eventsDays int) {
+	cutoff := time.Now().AddDate(0, 0, -eventsDays).UnixMilli()
+	n, err := ev.DeleteEventsBefore(cutoff)
+	if err != nil {
+		log.Printf("retention sweep: delete events: %v", err)
+		return
+	}
+	if n > 0 {
+		log.Printf("retention sweep: removed %d event(s) older than %d days", n, eventsDays)
+	}
 }
 
 func runSweep(dataDir string, retentionDays int) {

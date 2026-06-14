@@ -1,0 +1,25 @@
+# spyglass — the whole ops story: one service, one volume, one config file.
+#
+#   SPYGLASS_PASS=changeme docker compose up -d
+#
+# Dashboard + collector at http://localhost:7474
+services:
+  spyglassd:
+    build:
+      context: .
+      args:
+        VERSION: compose
+    # Or pin a published image instead of building:
+    # image: ghcr.io/foundanand/spyglass:latest
+    ports:
+      - "7474:7474"
+    environment:
+      # Referenced by config as "dashboard_password": "env:SPYGLASS_PASS".
+      SPYGLASS_PASS: "${SPYGLASS_PASS:-}"
+    volumes:
+      - spyglass-data:/data
+      - ./spyglass.config.json:/etc/spyglass/spyglass.config.json:ro
+    restart: unless-stopped
+
+volumes:
+  spyglass-data:

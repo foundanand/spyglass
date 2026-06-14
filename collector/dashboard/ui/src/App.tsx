@@ -4,8 +4,9 @@ import { ReplayPlayer } from "./views/ReplayPlayer.js";
 import { UserTimeline } from "./views/UserTimeline.js";
 import { Errors } from "./views/Errors.js";
 import { Incident } from "./views/Incident.js";
+import { Insights } from "./views/Insights.js";
 
-type View = "live" | "timeline" | "errors" | "replay" | "incident";
+type View = "live" | "timeline" | "errors" | "replay" | "insights" | "incident";
 
 export function App() {
   const [view, setView] = useState<View>("live");
@@ -53,6 +54,13 @@ export function App() {
         >
           Replay
         </a>
+        <a
+          href="#"
+          class={view === "insights" ? "active" : ""}
+          onClick={(e) => { e.preventDefault(); setView("insights"); }}
+        >
+          Insights
+        </a>
       </nav>
       <main>
         <div id="app">
@@ -60,6 +68,7 @@ export function App() {
           {view === "timeline" && <UserTimeline />}
           {view === "errors" && <Errors onOpenIncident={openIncident} />}
           {view === "replay" && <ReplayPlayer />}
+          {view === "insights" && <Insights />}
           {view === "incident" && incidentId !== null && (
             <Incident eventId={incidentId} onBack={backFromIncident} />
           )}

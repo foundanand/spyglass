@@ -52,3 +52,35 @@ func TestRunSweep_NoReplaysDir(t *testing.T) {
 	// Should not panic when replays dir doesn't exist yet.
 	runSweep(t.TempDir(), 7)
 }
+
+// fakeDeleter records the cutoff it was called with.
+type fakeDeleter struct {
+	gotCutoff int64
+	deleted   int64
+}
+
+func (f *fakeDeleter) DeleteEventsBefore(cutoffMs int64) (int64, error) {
+	f.gotCutoff = cutoffMs
+	return f.deleted, nil
+}
+
+func TestSweepEvents(t *testing.T) {
+	f := &fakeDeleter{deleted: 5}
+	sweepEvents(f, 30)
+
+	// Cutoff should be ~30 days ago in unix ms.
+	want := time.Now().AddDate(0, 0, -30).UnixMilli()
+	if diff := f.gotCutoff - want; diff < -60_000 || diff > 60_000 {
+		t.Errorf("cutoff off by %dms; got %d want ~%d", diff, f.gotCutoff, want)
+	}
+}
+
+func TestStartSweep_AllZeroIsNoop(t *testing.T) {
+	f := &fakeDeleter{}
+	// replaysDays=0 and eventsDays=0 → no goroutine, deleter never called.
+	StartSweep(t.TempDir(), 0, f, 0)
+	time.Sleep(20 * time.Millisecond)
+	if f.gotCutoff != 0 {
+		t.Error("deleter should not have been called when both retentions are 0")
+	}
+}

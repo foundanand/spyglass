@@ -1,0 +1,17 @@
+**/node_modules
+**/dist
+collector/dashboard/ui/dist
+collector/spyglassd
+collector/spyglassd-*
+collector/dist
+data
+*.db
+*.db-wal
+*.db-shm
+.git
+.gitignore
+examples
+**/.next
+**/out
+*.log
+.DS_Store

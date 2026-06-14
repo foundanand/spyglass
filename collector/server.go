@@ -28,17 +28,26 @@ func run(cfg *Config, st *store.Store) error {
 	replayHandler := query.NewReplayHandler(cfg.DataDir)
 	incidentHandler := query.NewIncidentHandler(st, cfg.DataDir)
 
+	// Ingest endpoints authenticate with per-app keys — never behind the dashboard
+	// password, or the SDK could never post.
 	mux.Handle("POST /v1/events", ingest.NewEventsHandler(st, apps))
 	mux.Handle("OPTIONS /v1/events", ingest.NewEventsHandler(st, apps))
 	mux.Handle("POST /v1/replay", ingest.NewReplayHandler(st, apps, cfg.DataDir))
-	mux.Handle("GET /v1/query/events", query.NewEventsHandler(st))
-	mux.Handle("GET /v1/query/users", query.NewUsersHandler(st))
-	mux.Handle("GET /v1/query/sessions", query.NewSessionsHandler(st))
-	mux.Handle("GET /v1/sessions/", replayHandler)
-	mux.Handle("GET /v1/incidents/", incidentHandler)
-	mux.Handle("/", dashboard.Handler())
 
-	retention.StartSweep(cfg.DataDir, cfg.Retention.ReplaysDays)
+	// Dashboard-facing routes are gated by the shared password (no-op if unset).
+	pw := cfg.Auth.DashboardPassword
+	gate := func(h http.Handler) http.Handler { return dashboardAuth(pw, h) }
+
+	mux.Handle("GET /v1/query/events", gate(query.NewEventsHandler(st)))
+	mux.Handle("GET /v1/query/users", gate(query.NewUsersHandler(st)))
+	mux.Handle("GET /v1/query/sessions", gate(query.NewSessionsHandler(st)))
+	mux.Handle("GET /v1/query/funnel", gate(query.NewFunnelHandler(st)))
+	mux.Handle("GET /v1/query/aggregates", gate(query.NewAggregatesHandler(st)))
+	mux.Handle("GET /v1/sessions/", gate(replayHandler))
+	mux.Handle("GET /v1/incidents/", gate(incidentHandler))
+	mux.Handle("/", gate(dashboard.Handler()))
+
+	retention.StartSweep(cfg.DataDir, cfg.Retention.ReplaysDays, st, cfg.Retention.EventsDays)
 
 	srv := &http.Server{
 		Addr:         cfg.Listen,

@@ -307,6 +307,227 @@ func (s *Store) QueryEventsBySessionWindow(sessionID string, from, to int64) ([]
 	return out, rows.Err()
 }
 
+// FunnelStep is one step of a funnel with the count of users who reached it.
+type FunnelStep struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// Funnel computes a simple sequential funnel over event names. For each user it
+// walks their events (within the optional app/time window) in time order and
+// advances through the step list whenever the next step's name is seen; the
+// count for step i is the number of users who reached at least step i.
+// "Good enough" funnel semantics — no fan-out, no per-step time limits.
+func (s *Store) Funnel(steps []string, app string, from, to int64) ([]FunnelStep, error) {
+	out := make([]FunnelStep, len(steps))
+	for i, name := range steps {
+		out[i] = FunnelStep{Name: name}
+	}
+	if len(steps) == 0 {
+		return out, nil
+	}
+
+	conds := []string{"name IN (" + placeholders(len(steps)) + ")"}
+	args := make([]interface{}, 0, len(steps)+3)
+	for _, s := range steps {
+		args = append(args, s)
+	}
+	if app != "" {
+		conds = append(conds, "app = ?")
+		args = append(args, app)
+	}
+	if from > 0 {
+		conds = append(conds, "ts >= ?")
+		args = append(args, from)
+	}
+	if to > 0 {
+		conds = append(conds, "ts <= ?")
+		args = append(args, to)
+	}
+
+	query := `SELECT user_id, name FROM events WHERE ` +
+		strings.Join(conds, " AND ") + ` ORDER BY user_id, ts ASC`
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("funnel query: %w", err)
+	}
+	defer rows.Close()
+
+	stepIndex := make(map[string]int, len(steps))
+	for i, name := range steps {
+		// First occurrence wins so repeated step names map to the earliest step.
+		if _, ok := stepIndex[name]; !ok {
+			stepIndex[name] = i
+		}
+	}
+
+	var curUser string
+	progress := 0 // next step index this user must hit
+	flush := func() {
+		// User reached steps [0, progress); bump those counts.
+		for i := 0; i < progress; i++ {
+			out[i].Count++
+		}
+	}
+
+	for rows.Next() {
+		var user, name string
+		if err := rows.Scan(&user, &name); err != nil {
+			return nil, err
+		}
+		if user != curUser {
+			if curUser != "" {
+				flush()
+			}
+			curUser = user
+			progress = 0
+		}
+		// Advance only when this event matches the very next expected step.
+		if progress < len(steps) && steps[progress] == name {
+			progress++
+		}
+	}
+	if curUser != "" {
+		flush()
+	}
+	return out, rows.Err()
+}
+
+// DayCount is a per-day aggregate (day in YYYY-MM-DD, UTC).
+type DayCount struct {
+	Day   string `json:"day"`
+	Count int    `json:"count"`
+}
+
+// NameCount is a name → count aggregate.
+type NameCount struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// aggWhere builds a WHERE clause for the common app/time-window filters.
+func aggWhere(app string, from, to int64, extra ...string) (string, []interface{}) {
+	conds := append([]string{}, extra...)
+	var args []interface{}
+	if app != "" {
+		conds = append(conds, "app = ?")
+		args = append(args, app)
+	}
+	if from > 0 {
+		conds = append(conds, "ts >= ?")
+		args = append(args, from)
+	}
+	if to > 0 {
+		conds = append(conds, "ts <= ?")
+		args = append(args, to)
+	}
+	if len(conds) == 0 {
+		return "", args
+	}
+	return "WHERE " + strings.Join(conds, " AND "), args
+}
+
+func (s *Store) dayCounts(where string, args []interface{}) ([]DayCount, error) {
+	q := `SELECT date(ts/1000, 'unixepoch') AS day, COUNT(DISTINCT user_id) AS c
+	      FROM events ` + where + ` GROUP BY day ORDER BY day ASC`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("day counts: %w", err)
+	}
+	defer rows.Close()
+	var out []DayCount
+	for rows.Next() {
+		var d DayCount
+		if err := rows.Scan(&d.Day, &d.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// DAU returns daily active (distinct) user counts in the window.
+func (s *Store) DAU(app string, from, to int64) ([]DayCount, error) {
+	where, args := aggWhere(app, from, to)
+	return s.dayCounts(where, args)
+}
+
+// ErrorsByDay returns the per-day count of error events in the window.
+func (s *Store) ErrorsByDay(app string, from, to int64) ([]DayCount, error) {
+	where, args := aggWhere(app, from, to, "type = 'error'")
+	q := `SELECT date(ts/1000, 'unixepoch') AS day, COUNT(*) AS c
+	      FROM events ` + where + ` GROUP BY day ORDER BY day ASC`
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("errors by day: %w", err)
+	}
+	defer rows.Close()
+	var out []DayCount
+	for rows.Next() {
+		var d DayCount
+		if err := rows.Scan(&d.Day, &d.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// topByType returns the top event names of a given type, by count.
+func (s *Store) topByType(typ, app string, from, to int64, limit int) ([]NameCount, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 10
+	}
+	where, args := aggWhere(app, from, to, "type = ?")
+	// Prepend the type arg so it lines up with the first '?' in the WHERE clause.
+	args = append([]interface{}{typ}, args...)
+	q := `SELECT name, COUNT(*) AS c FROM events ` + where +
+		` GROUP BY name ORDER BY c DESC LIMIT ?`
+	args = append(args, limit)
+	rows, err := s.db.Query(q, args...)
+	if err != nil {
+		return nil, fmt.Errorf("top %s: %w", typ, err)
+	}
+	defer rows.Close()
+	var out []NameCount
+	for rows.Next() {
+		var n NameCount
+		if err := rows.Scan(&n.Name, &n.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// TopEvents returns the most frequent captured event names.
+func (s *Store) TopEvents(app string, from, to int64, limit int) ([]NameCount, error) {
+	return s.topByType("event", app, from, to, limit)
+}
+
+// TopPages returns the most frequent pageview paths.
+func (s *Store) TopPages(app string, from, to int64, limit int) ([]NameCount, error) {
+	return s.topByType("pageview", app, from, to, limit)
+}
+
+// DeleteEventsBefore removes events with ts < cutoffMs and returns the count.
+func (s *Store) DeleteEventsBefore(cutoffMs int64) (int64, error) {
+	res, err := s.db.Exec(`DELETE FROM events WHERE ts < ?`, cutoffMs)
+	if err != nil {
+		return 0, fmt.Errorf("delete old events: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// placeholders returns "?,?,?" with n marks.
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strings.Repeat("?,", n-1) + "?"
+}
+
 // ListSessions returns sessions ordered by last_seen desc.
 func (s *Store) ListSessions(limit int) ([]Session, error) {
 	if limit <= 0 || limit > 500 {

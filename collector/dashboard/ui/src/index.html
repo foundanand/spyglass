@@ -202,6 +202,36 @@
     .status-3xx { background: #2a2a1a; color: #fde68a; }
     .status-4xx { background: #3a1a1a; color: #fca5a5; }
     .status-5xx { background: #4a1a1a; color: #f87171; }
+    /* Insights view */
+    .insight-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem; margin-bottom: 1rem;
+    }
+    .insight-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 1rem; margin-bottom: 1rem;
+    }
+    .insight-card h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .bars { display: flex; flex-direction: column; gap: 0.35rem; }
+    .bar-row { display: flex; align-items: center; gap: 0.5rem; }
+    .bar-label {
+      width: 38%; flex-shrink: 0; color: var(--muted); font-size: 0.8em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .bar-track { flex: 1; height: 14px; background: var(--bg); border-radius: 3px; overflow: hidden; }
+    .bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+    .bar-count { width: 2.5rem; text-align: right; font-variant-numeric: tabular-nums; }
+    .funnel { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem; }
+    .funnel-step { display: flex; flex-direction: column; gap: 3px; }
+    .funnel-head { display: flex; justify-content: space-between; font-size: 0.85em; }
+    .funnel-name { font-weight: 500; }
+    .funnel-count { font-variant-numeric: tabular-nums; }
+    .funnel-conv { color: var(--muted); }
+    .funnel-bar-track { height: 22px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .funnel-bar-fill {
+      height: 100%; background: linear-gradient(90deg, var(--accent), #818cf8);
+      border-radius: 4px; transition: width .2s;
+    }
   </style>
 </head>
 <body>
