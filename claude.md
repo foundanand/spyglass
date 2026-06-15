@@ -18,7 +18,7 @@ PostHog / Highlight / OpenReplay assume billion-event scale: ClickHouse, Kafka, 
 * `npm install`, one config file, one command. Configure once, never touch again.
 * A single deployable that runs forever on the smallest machine you have.
 * Solves the *whole* problem (events + replay + errors + bug reports), not a slice of it.
-* Open-source, MIT, built first for our own projects, generalizable later.
+* Open-source, GPL-3.0, built first for our own projects, generalizable later.
 
 **The structural advantage:** in a closed internal system we record *every* session continuously, with identified users. So "what happened when the bug occurred" is not a capture problem (Jam/Capture.dev solve it with in-browser ring buffers) — it's a query over data already on disk. Bug reporting becomes a view layer, nearly free.
 
@@ -224,7 +224,7 @@ SDK: error handlers, fetch/XHR patch, dedup. Dashboard: error list, network rows
 SDK: widget, `report()`. Go: `/v1/incidents/:id` slice assembly. Dashboard: the incident page. *Exit: click report → open incident → replay cued to that exact moment.*
 
 **Phase 5 — Polish & release.**
-Funnel/aggregate queries, dashboard auth, `npx spyglassd` wrapper or install script, README in dynamoip's voice, Docker example, MIT license, publish `@spyglass/sdk`.
+Funnel/aggregate queries, dashboard auth, `npx spyglassd` wrapper or install script, README in dynamoip's voice, Docker example, GPL-3.0 license, publish `@spyglass/sdk`.
 
 Each phase ships working software. Do not start phase N+1 with phase N broken.
 

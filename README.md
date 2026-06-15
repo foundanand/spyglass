@@ -13,7 +13,7 @@ bug occurred" isn't a capture problem — it's a query over data already on disk
 - **~5KB gzipped SDK.** rrweb loads lazily, only when replay is on.
 - **~20MB RAM collector.** Pure-Go SQLite (`modernc.org/sqlite`), no CGo, static binary.
 - **Configure once, never touch again.** One JSON file is the entire ops story.
-- **MIT, self-hosted, no phone-home.** Everything stays on your machine.
+- **GPL-3.0, self-hosted, no phone-home.** Everything stays on your machine.
 
 ---
 
@@ -165,4 +165,4 @@ the database is one file, backup is `cp`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+GPL-3.0 — free for commercial use; if you distribute the software, your modifications must be shared. See [LICENSE](LICENSE).

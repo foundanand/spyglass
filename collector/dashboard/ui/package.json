@@ -8,10 +8,10 @@
     "dev": "node build.mjs --watch"
   },
   "dependencies": {
-    "preact": "^10.25.0",
-    "rrweb-player": "^2.0.0-alpha.20"
+    "preact": "^10.29.2",
+    "rrweb-player": "^2.0.1"
   },
   "devDependencies": {
-    "esbuild": "^0.25.0"
+    "esbuild": "^0.28.1"
   }
 }
