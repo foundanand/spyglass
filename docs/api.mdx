@@ -1,0 +1,164 @@
+---
+title: API reference
+description: Every spyglass collector HTTP endpoint — ingest, queries, funnel, aggregates, replay manifests, and incident slices — with auth, parameters, and response shapes.
+---
+
+The collector exposes a small, versioned HTTP API under `/v1/`. The SDK uses the
+ingest endpoints; the dashboard uses the query endpoints. You can call any of
+them directly — for scripts, exports, or your own tooling.
+
+Two auth schemes, by purpose:
+
+- **Ingest** (`/v1/events`, `/v1/replay`) — the app **key** in the request,
+  validated against your [config](/docs/configuration#apps).
+- **Reads** (everything else, plus the dashboard) — HTTP Basic auth with the
+  [dashboard password](/docs/configuration#auth), when one is set.
+
+---
+
+## Ingest
+
+### `POST /v1/events`
+
+Batched event insert, in a single transaction. The app `key` travels **in the
+JSON body**, not a header.
+
+```json title="request body"
+{
+  "app": "inventory",
+  "key": "sg_live_…",
+  "events": [
+    {
+      "ts": 1718200000000,
+      "app": "inventory",
+      "user_id": "alice",
+      "session_id": "s_abc",
+      "type": "event",
+      "name": "invoice_created",
+      "url": "/invoices/new",
+      "props": { "amount": 1200 }
+    }
+  ]
+}
+```
+
+`type` is one of `event`, `pageview`, `error`, `network`, `bug_report`. Returns
+`204 No Content` on success, `401` on a bad app/key, `413` if the body is too
+large. CORS preflight (`OPTIONS`) is handled against each app's `origins`.
+
+### `POST /v1/replay?session=&seq=&ts=&app=`
+
+Uploads one gzipped rrweb chunk to disk and bumps the session's chunk count.
+`session` and `seq` (1-based) are required. The body is the raw gzipped chunk.
+Returns `204`.
+
+---
+
+## Queries
+
+All query endpoints return JSON and are gated by the dashboard password when set.
+
+### `GET /v1/query/events`
+
+Filtered event stream, newest first.
+
+| Param | Meaning |
+|---|---|
+| `user` | Filter by user ID. |
+| `type` | Filter by event type. |
+| `app` | Filter by app slug. |
+| `from`, `to` | Unix-ms time bounds. |
+| `limit` | Max rows (default 100, capped at 500). |
+
+```json title="response"
+{ "events": [ { "id": 1, "ts": 1718…, "type": "error", "name": "boom", "…": "…" } ] }
+```
+
+### `GET /v1/query/users`
+
+Active users with last-seen and session counts.
+
+```json
+{ "users": [ { "user_id": "alice", "app": "inventory", "last_seen": 1718…, "session_count": 3 } ] }
+```
+
+### `GET /v1/query/sessions`
+
+Session list, newest first. `?limit=` (default 100, max 500).
+
+### `GET /v1/query/funnel?steps=a,b,c`
+
+Sequential funnel over event **names**. Each user's events are walked in time
+order; the count for step *i* is how many users reached at least that step in
+order. Needs **two or more** steps (`400` otherwise). Optional `app`, `from`,
+`to`.
+
+```json title="response for steps=view,cart,checkout"
+{ "steps": [ { "name": "view", "count": 30 }, { "name": "cart", "count": 12 }, { "name": "checkout", "count": 5 } ] }
+```
+
+### `GET /v1/query/aggregates`
+
+DAU, top events, top pages, and errors-by-day in one payload. Optional `app`,
+`from`, `to`, and `limit` (top-N size, default 10).
+
+```json title="response"
+{
+  "dau":           [ { "day": "2026-06-14", "count": 2 } ],
+  "top_events":    [ { "name": "view", "count": 2 } ],
+  "top_pages":     [ { "name": "/home", "count": 1 } ],
+  "errors_by_day": [ { "day": "2026-06-14", "count": 1 } ]
+}
+```
+
+Days are `YYYY-MM-DD` in UTC.
+
+---
+
+## Replay
+
+### `GET /v1/sessions/:id/replay`
+
+Returns the chunk **manifest** for a session — the ordered list of chunks with
+timestamps, used by the player to seek.
+
+```json
+{ "session_id": "s_abc", "chunks": [ { "seq": 1, "ts": 1718…, "path": "/v1/sessions/s_abc/replay/1" } ] }
+```
+
+### `GET /v1/sessions/:id/replay/:seq`
+
+Returns one raw gzipped rrweb chunk by sequence number.
+
+---
+
+## Incidents
+
+### `GET /v1/incidents/:event_id`
+
+Assembles an [incident slice](/docs/dashboard#incident-view) around an `error` or
+`bug_report` event: the window `[ts − 60s, ts + 10s]` from the same session.
+Returns `400` if the referenced event isn't an error or bug report, `404` if it
+doesn't exist.
+
+```json title="response"
+{
+  "event":        { "id": 42, "type": "error", "name": "boom", "…": "…" },
+  "breadcrumbs":  [ /* every event in the window, ascending */ ],
+  "incident_ts":  1718…,
+  "session_id":   "s_abc",
+  "replay_cue":   { "chunks": [ { "seq": 4, "ts": 1718…, "path": "/v1/sessions/s_abc/replay/4" } ] }
+}
+```
+
+`replay_cue` lists the replay chunks overlapping the window so the player can
+pre-fetch them and seek straight to `incident_ts`.
+
+---
+
+## Dashboard
+
+### `GET /`
+
+Serves the embedded single-page dashboard. Gated by the dashboard password when
+set; unknown paths fall back to the SPA's index for client-side routing.

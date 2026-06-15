@@ -1,0 +1,145 @@
+---
+title: Getting started
+description: Run the collector, point the SDK at it, and watch events, replays, errors, and bug reports show up in the dashboard — in about five minutes.
+---
+
+Two moving parts: the **collector** (`spyglassd`, one Go binary) and the **SDK**
+(`@spyglass/sdk`, dropped into your web app). The collector stores everything and
+serves the dashboard; the SDK ships telemetry to it. Stand up the collector
+first, then wire the SDK.
+
+---
+
+## 1. Run the collector
+
+### Option A — Docker (fastest)
+
+```bash
+SPYGLASS_PASS=changeme docker compose up -d
+```
+
+The dashboard and collector come up together at
+[http://localhost:7474](http://localhost:7474). Data persists to a named volume.
+
+### Option B — single binary
+
+Build it (needs Go 1.25+ and Node 22+ for the embedded dashboard):
+
+```bash
+make build
+./collector/spyglassd --config spyglass.config.json
+```
+
+Either way the collector reads **one** config file. Copy the example and edit it:
+
+```bash
+cp spyglass.config.example.json spyglass.config.json
+```
+
+```json title="spyglass.config.json"
+{
+  "listen": ":7474",
+  "dataDir": "./data",
+  "apps": {
+    "inventory": {
+      "key": "sg_live_pick_a_long_random_string",
+      "origins": ["http://localhost:3000"]
+    }
+  },
+  "retention": { "replays_days": 21, "events_days": 0 },
+  "auth": { "dashboard_password": "env:SPYGLASS_PASS" }
+}
+```
+
+The two things you must set:
+
+- **`apps.<slug>.key`** — a secret the SDK presents on every request. Pick any
+  long random string. The `<slug>` (here `inventory`) is your app's name.
+- **`apps.<slug>.origins`** — the browser origins allowed to post (CORS). Add
+  your dev and prod URLs.
+
+Everything else has sane defaults. See [Configuration](/docs/configuration) for
+the full reference.
+
+---
+
+## 2. Add the SDK to your app
+
+Install `@spyglass/sdk` from your workspace or private registry (it is **not**
+published to public npm), then initialize it once, as early as possible:
+
+```ts title="app entry (e.g. layout or _app)"
+import { spyglass } from "@spyglass/sdk";
+
+spyglass.init({
+  endpoint: "http://localhost:7474",  // your collector URL
+  app: "inventory",                   // matches the config slug
+  key: "sg_live_pick_a_long_random_string", // matches apps.inventory.key
+  user: { id: "anand", name: "Anand", email: "anand@acme.dev" },
+});
+```
+
+<Callout type="warn">
+`endpoint`, `app`, `key`, and `user.id` are **required** — `init()` throws if any
+is missing. Every session is tied to an identified user by design; spyglass does
+not track anonymous visitors.
+</Callout>
+
+That single call turns on, with their defaults:
+
+- **Pageviews** (automatic in Next.js — see below)
+- **Session replay** (rrweb + console, lazy-loaded)
+- **Network capture** (method, status, duration, sizes)
+- **Error tracking** (`window.onerror`, unhandled rejections, `console.error`)
+- **The bug-report widget** (floating button, bottom-right)
+
+### Capturing your own events
+
+```ts
+spyglass.capture("invoice_created", { amount: 1200, currency: "USD" });
+```
+
+### Next.js
+
+Wrap your tree once and app-router pageviews wire up automatically:
+
+```tsx title="app/layout.tsx"
+import { SpyglassProvider } from "@spyglass/sdk/next";
+
+export default function RootLayout({ children }) {
+  return (
+    <SpyglassProvider
+      config={{
+        endpoint: "http://localhost:7474",
+        app: "inventory",
+        key: "sg_live_…",
+        user: { id: currentUser.id, name: currentUser.name },
+      }}
+    >
+      {children}
+    </SpyglassProvider>
+  );
+}
+```
+
+See the [SDK reference](/docs/sdk) for the full API and every config option.
+
+---
+
+## 3. See your data
+
+Open [http://localhost:7474](http://localhost:7474) (log in with the dashboard
+password if you set one). Click around your app, then:
+
+- **Live feed** — your events appear within ~5 seconds.
+- **Replay** — watch the session you just recorded, with console logs.
+- **Errors** — throw something in your app; it shows up with a stack trace.
+  Click it to open the **incident view** — the replay auto-cued to the exact
+  moment, with the breadcrumb timeline, network waterfall, and console alongside.
+
+That's the whole loop. From here:
+
+- [SDK reference](/docs/sdk) — every method and config option
+- [Configuration](/docs/configuration) — the collector config file in full
+- [Deployment](/docs/deployment) — Docker, the binary, retention, auth
+- [Dashboard](/docs/dashboard) — a tour of every view

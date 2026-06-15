@@ -1,0 +1,80 @@
+---
+title: Dashboard
+description: A tour of every dashboard view — live feed, user timeline, errors, replay, insights, and the incident view that turns any error or bug report into a cued replay slice.
+---
+
+The dashboard is a single embedded page served at the collector root
+([http://localhost:7474](http://localhost:7474) by default). No separate process,
+no Node on the server — it ships inside the binary. If a
+[dashboard password](/docs/configuration#auth) is set, the browser prompts for it
+once.
+
+Six views, reachable from the top nav.
+
+---
+
+## Live feed
+
+The raw event stream, newest first, filterable by user, type, and app. The first
+place to look to confirm telemetry is flowing — your events appear within ~5
+seconds of happening. Click any error or bug report to jump to its
+[incident](#incident-view).
+
+## User timeline
+
+Pick a user from the sidebar to see their sessions, each expanded into a
+chronological breadcrumb trail: pageviews, captured events, network requests, and
+errors, color-coded by type. This is the "what was this person doing" view —
+follow a user's path leading up to a problem.
+
+## Errors
+
+Every `error` and `bug_report`, with expandable stack traces and a user filter.
+Errors are de-duplicated by the SDK within a 5-second window, so a render loop
+shows up once, not a thousand times. Click any row to open its
+[incident](#incident-view).
+
+## Replay
+
+rrweb-player with seek. Pick a session and watch it back exactly as the user saw
+it, with a synced **console pane** beside the video — the console logs are
+recorded inside the replay stream, so they line up with what's on screen.
+
+## Insights
+
+Simple aggregates and a funnel builder — SQL `GROUP BY`, nothing heavier.
+
+- **Daily active users** — distinct users per day.
+- **Errors by day** — error volume over time.
+- **Top events** — your most frequent `capture()` calls.
+- **Top pages** — most-viewed paths.
+- **Funnel** — enter two or more event names (e.g. `view, cart, checkout`) and
+  see how many users reached each step in order, with step-to-step conversion.
+
+These map to the [`/v1/query/aggregates` and `/v1/query/funnel`](/docs/api)
+endpoints if you'd rather query them directly.
+
+---
+
+## Incident view
+
+The reason spyglass exists. For **any** error or bug report, it assembles the
+slice from `[ts − 60s, ts + 10s]` of that same session and lays it all out on one
+page:
+
+- **The replay clip**, auto-cued to the exact moment it happened.
+- **A breadcrumb timeline** — every event in the window.
+- **A network waterfall** — the requests around the failure, with status and
+  duration.
+- **The console output** from the replay stream.
+- **The stack trace** (errors) or **the comment and severity** (bug reports), on
+  top.
+
+This is the Capture.dev / Jam product — "show me exactly what happened when it
+broke" — except nothing was specially captured. Because the system records every
+session of every identified user continuously, the incident is just a **query**
+over data already on disk. You open it after the fact; there was no ring buffer
+to have been running, no repro to reproduce.
+
+Reach it by clicking any row in **Errors** or **Live feed**, or by hitting
+[`GET /v1/incidents/:event_id`](/docs/api) directly.

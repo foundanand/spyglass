@@ -1,0 +1,175 @@
+---
+title: SDK reference
+description: The @spyglass/sdk API — init, capture, setUser, report — plus every configuration option for replay, network capture, error tracking, masking, and the bug-report widget.
+---
+
+`@spyglass/sdk` is a ~5KB gzipped TypeScript SDK. rrweb (session replay) loads
+lazily as a second chunk, only when `replay` is on, so apps that don't record pay
+nothing for it.
+
+The public surface is deliberately tiny — four methods:
+
+```ts
+import { spyglass } from "@spyglass/sdk";
+
+spyglass.init(config);             // start everything
+spyglass.capture(name, props?);    // a custom event
+spyglass.setUser({ id, name?, email? }); // late / changed identity
+spyglass.report(comment, extra?);  // programmatic bug report
+```
+
+---
+
+## `init(config)`
+
+Call once, as early as possible. Throws if `endpoint`, `app`, `key`, or
+`user.id` is missing.
+
+```ts
+spyglass.init({
+  endpoint: "https://telemetry.internal.acme.dev",
+  app: "inventory",
+  key: "sg_live_…",
+  user: { id: "anand", name: "Anand", email: "anand@acme.dev" },
+  replay: true,
+  autocapture: false,
+  network: true,
+  maskInputs: "password",
+  reportWidget: true,
+});
+```
+
+### Config options
+
+| Option | Type | Default | Notes |
+|---|---|---|---|
+| `endpoint` | `string` | — | **Required.** Collector base URL. |
+| `app` | `string` | — | **Required.** App slug; must match a key in the collector config. |
+| `key` | `string` | — | **Required.** App key for ingest auth; must match `apps.<slug>.key`. |
+| `user` | `{ id, name?, email? }` | — | **Required** (`user.id`). All sessions are identified. |
+| `replay` | `boolean` | `true` | rrweb session replay + console capture. |
+| `autocapture` | `boolean` | `false` | Record all clicks + form changes. Lazy-loaded; zero bytes when off. |
+| `network` | `boolean \| { bodies }` | `true` | Capture fetch/XHR metadata. See [Network capture](#network-capture). |
+| `maskInputs` | `"all" \| "password" \| "none"` | `"password"` | Input masking in replays. |
+| `reportWidget` | `boolean` | `true` | Floating bug-report button. |
+
+---
+
+## `capture(name, props?)`
+
+Record a custom event. `props` is any JSON-serializable object.
+
+```ts
+spyglass.capture("invoice_created", { amount: 1200, currency: "USD" });
+spyglass.capture("filter_applied");   // props optional
+```
+
+Event names are the building blocks of [funnels and aggregates](/docs/dashboard#insights),
+so keep them stable and snake_case.
+
+---
+
+## `setUser({ id, name?, email? })`
+
+Update the identified user after `init()` — e.g. once a login resolves, or when
+a user switches accounts. Fields you pass are merged into the current user.
+
+```ts
+spyglass.setUser({ id: "anand", name: "Anand Lahoti" });
+```
+
+---
+
+## `report(comment, extra?)`
+
+Emit a `bug_report` event programmatically — the same event the floating widget
+produces. Useful for a custom "Report a problem" entry point.
+
+```ts
+spyglass.report("totals look wrong on the invoice screen", { severity: "high" });
+```
+
+Every bug report becomes an [incident](/docs/dashboard#incident-view): the replay
+slice around the moment it was filed, cued and ready to watch.
+
+---
+
+## What gets recorded automatically
+
+With the defaults, `init()` alone wires up the following. None of it needs extra
+code.
+
+### Pageviews
+
+Captured automatically in Next.js via [`<SpyglassProvider>`](#nextjs). In plain
+apps, call `spyglass.capture` on route changes, or send a pageview yourself.
+
+### Session replay
+
+rrweb records the DOM continuously and uploads gzipped ~10-second chunks. Console
+logs travel **inside** the replay stream (via the official console-record
+plugin), so the replay player shows a synced console pane — no separate pipeline.
+
+Backpressure rule: if uploads can't keep up, replay is dropped **before** events.
+Analytics integrity is never sacrificed for replay.
+
+### Network capture
+
+Patches `fetch` and `XMLHttpRequest`. By default records **metadata only**:
+method, URL, status, duration, and request/response sizes.
+
+Request/response **bodies are opt-in per route prefix**:
+
+```ts
+spyglass.init({
+  // …
+  network: { bodies: ["/api/orders", "/api/invoices"] },
+});
+```
+
+Only URLs matching an allowed prefix have their body captured, truncated to 2KB.
+`Authorization` and `Cookie` headers are **never** recorded. The collector's own
+requests are never intercepted. Set `network: false` to disable entirely.
+
+### Error tracking
+
+Hooks `window.onerror`, `unhandledrejection`, and patches `console.error`.
+Captures the message, source, line/column, and stack. Identical errors within a
+5-second window are de-duplicated so a render loop doesn't flood the feed.
+
+### The bug-report widget
+
+A floating 🐛 button (bottom-right) opens a comment box with an optional severity.
+Submitting emits a `bug_report`. It renders inside a **closed Shadow DOM**, so
+your app's styles and the widget's never bleed into each other. Turn it off with
+`reportWidget: false` and use [`report()`](#reportcomment-extra) instead.
+
+---
+
+## Next.js
+
+`@spyglass/sdk/next` exports a provider that calls `init()` and wires app-router
+pageviews through `usePathname` / `useSearchParams`:
+
+```tsx title="app/layout.tsx"
+import { SpyglassProvider } from "@spyglass/sdk/next";
+
+<SpyglassProvider config={{ endpoint, app, key, user }}>
+  {children}
+</SpyglassProvider>
+```
+
+The provider takes the exact same config object as `init()`.
+
+---
+
+## How delivery works
+
+You don't manage any of this — it's documented so you know the guarantees.
+
+- **Batching.** Events queue in memory and flush every 5 seconds or every 20
+  events, whichever comes first.
+- **Never lose tab-close events.** On `visibilitychange` / `pagehide` the queue
+  is flushed with `navigator.sendBeacon`, which survives the page going away.
+- **Sessions.** A random session ID lives in `sessionStorage`; a new one is
+  minted after 30 minutes of inactivity.

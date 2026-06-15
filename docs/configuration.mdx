@@ -1,0 +1,121 @@
+---
+title: Configuration
+description: The spyglass.config.json reference — apps and keys, data directory, retention, dashboard auth, and env-var resolution. One file is the entire ops story.
+---
+
+The collector reads exactly one JSON file, passed with `--config`:
+
+```bash
+spyglassd --config spyglass.config.json
+```
+
+Configure it once and you never touch it again. Here is every key:
+
+```json title="spyglass.config.json"
+{
+  "listen": ":7474",
+  "dataDir": "./data",
+  "apps": {
+    "inventory": {
+      "key": "sg_live_pick_a_long_random_string",
+      "origins": ["http://localhost:3000", "https://inventory.internal.acme.dev"]
+    }
+  },
+  "retention": { "replays_days": 21, "events_days": 0 },
+  "auth": { "dashboard_password": "env:SPYGLASS_PASS" }
+}
+```
+
+---
+
+## `listen`
+
+The address the HTTP server binds to. Default `:7474`. Use `:PORT` for all
+interfaces or `127.0.0.1:PORT` to bind locally only.
+
+## `dataDir`
+
+Directory for the SQLite database (`spyglass.db`) and replay blobs
+(`replays/`). Default `./data`. Created on boot if it doesn't exist. **This is the
+only state spyglass keeps** — back it up by copying the directory.
+
+```
+data/
+  spyglass.db          # events + sessions (SQLite, WAL mode)
+  replays/
+    <session_id>/
+      meta.json
+      000001.json.gz   # gzipped rrweb chunks
+```
+
+## `apps`
+
+A map of app slug → settings. At least one app is **required**; the collector
+refuses to start otherwise. The SDK's `app` and `key` must match an entry here.
+
+| Field | Required | Purpose |
+|---|---|---|
+| `key` | yes | Secret the SDK presents on every ingest request. Any long random string. |
+| `origins` | no | Allowed browser origins (CORS) for this app. Add your dev and prod URLs. |
+
+Run several apps off one collector by adding more entries — each with its own key.
+
+<Callout type="info">
+The app `key` authenticates **ingest** (`/v1/events`, `/v1/replay`). It is
+separate from the dashboard password, which gates the *reading* side.
+</Callout>
+
+## `retention`
+
+How long data is kept. A value of `0` means **keep forever**.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `replays_days` | `21` | Delete replay directories older than N days. |
+| `events_days` | `0` | Delete events older than N days. `0` = keep forever (events are tiny). |
+
+A retention sweep runs once on boot and then every 24 hours, in-process. Replays
+are bulky (MBs per active hour) so they expire by default; events are rows worth
+bytes, so they're kept indefinitely unless you set `events_days`.
+
+## `auth`
+
+| Field | Purpose |
+|---|---|
+| `dashboard_password` | Password gating the dashboard and all query endpoints. |
+
+When set, the dashboard and every read endpoint require [HTTP Basic auth](/docs/deployment#authentication)
+(any username, this password). When **empty or omitted**, the dashboard is open —
+fine for localhost, not for anything reachable by others.
+
+---
+
+## Env-var resolution
+
+Any string value of `"env:NAME"` is replaced at load time with the environment
+variable `NAME`. The collector **fails to start** if the variable is unset, so a
+missing secret is a loud error, not a silent open door.
+
+```json
+"auth": { "dashboard_password": "env:SPYGLASS_PASS" }
+```
+
+```bash
+SPYGLASS_PASS='a-strong-password' spyglassd --config spyglass.config.json
+```
+
+Keep real secrets out of the file this way and commit the config safely.
+
+---
+
+## Defaults at a glance
+
+| Key | Default |
+|---|---|
+| `listen` | `:7474` |
+| `dataDir` | `./data` |
+| `retention.replays_days` | `21` |
+| `retention.events_days` | `0` (keep forever) |
+| `auth.dashboard_password` | empty (no auth) |
+
+A copyable starting point lives at `spyglass.config.example.json` in the repo.

@@ -1,0 +1,131 @@
+---
+title: Deployment
+description: Ship spyglass to a server — Docker and docker-compose, the cross-compiled static binary, the install script, dashboard authentication, retention, and backup.
+---
+
+spyglass is one static binary plus one data directory. There is no database
+server to run, no cache to provision, nothing to cluster. Deploy it on the
+smallest machine you have; it targets **under 50MB RAM** under load.
+
+---
+
+## Docker (recommended)
+
+The repo ships a multi-stage [`Dockerfile`](https://github.com/foundanand/spyglass/blob/master/Dockerfile)
+that builds the dashboard, compiles a static binary, and packs it into a
+distroless `nonroot` image. With `docker-compose.yml`:
+
+```bash
+SPYGLASS_PASS='a-strong-password' docker compose up -d
+```
+
+That brings up the collector on port 7474 with:
+
+- a named volume `spyglass-data` mounted at `/data` (your SQLite + replays), and
+- `./spyglass.config.json` mounted read-only at `/etc/spyglass/spyglass.config.json`.
+
+Point `dataDir` at `/data` in your config so state lands on the volume:
+
+```json
+{ "dataDir": "/data", "listen": ":7474", "...": "..." }
+```
+
+To build and run the image directly:
+
+```bash
+docker build -t spyglass .
+docker run -d -p 7474:7474 \
+  -e SPYGLASS_PASS='a-strong-password' \
+  -v spyglass-data:/data \
+  -v "$PWD/spyglass.config.json:/etc/spyglass/spyglass.config.json:ro" \
+  spyglass
+```
+
+---
+
+## The binary
+
+`spyglassd` is a single cross-compiled, statically linked executable —
+`modernc.org/sqlite` is pure Go, so there's no C toolchain and no shared
+libraries to ship.
+
+### Build from source
+
+Needs Go 1.25+ and Node 22+ (to build the embedded dashboard once):
+
+```bash
+make build      # dashboard + collector for this host
+make release    # static binaries for darwin/linux × amd64/arm64 → collector/dist/
+make run        # build, then run against spyglass.config.json
+make test       # Go + SDK test suites
+```
+
+### Install script
+
+For a host with a published release:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/foundanand/spyglass/master/scripts/install.sh | sh
+```
+
+It detects your OS/arch, fetches the matching `spyglassd`, and installs it to
+`/usr/local/bin` (override with `PREFIX=$HOME/.local/bin`). Then:
+
+```bash
+spyglassd --config spyglass.config.json
+spyglassd --version
+```
+
+### Running it as a service
+
+`spyglassd` is a plain foreground process that handles `SIGINT`/`SIGTERM` with a
+graceful shutdown — wrap it in whatever you already use (systemd, a process
+manager, Docker `restart: unless-stopped`). There is nothing spyglass-specific to
+configure.
+
+---
+
+## Authentication
+
+Ingest and reads are gated **separately**:
+
+- **Ingest** (`POST /v1/events`, `POST /v1/replay`) authenticates with the
+  per-app **key** from your config. This is what the SDK presents. It is never
+  behind the dashboard password — the SDK must always be able to post.
+- **Dashboard + query endpoints** are gated by
+  [`auth.dashboard_password`](/docs/configuration#auth) via HTTP Basic auth (any
+  username, that password, compared in constant time). Set it for any deployment
+  others can reach.
+
+When the password is empty the read side is open — acceptable on localhost only.
+
+Put the collector behind your own TLS-terminating reverse proxy (or the Docker
+host's) for HTTPS; spyglass speaks plain HTTP and expects to live on a trusted
+network or behind a proxy.
+
+---
+
+## Retention & backup
+
+- **Replays** auto-expire after `retention.replays_days` (default 21). **Events**
+  are kept forever unless you set `retention.events_days`. The sweep runs on boot
+  and every 24 hours. See [Configuration](/docs/configuration#retention).
+- **Backup is `cp`.** The entire state is `dataDir` — copy the directory (or
+  snapshot the volume). The database is a single WAL-mode SQLite file; copy it
+  while running and you get a consistent snapshot, or stop the process for a
+  guaranteed-clean copy.
+
+---
+
+## Sizing
+
+Reference math, not limits:
+
+- 60 users × ~600 events/day ≈ 36k rows/day ≈ 13M rows/year — trivial for SQLite,
+  which holds hundreds of millions of rows comfortably. 10× the users doesn't
+  change anything.
+- Replay ≈ 1–5MB compressed per active hour. Worst case ~1–2GB/day; with 21-day
+  retention that's tens of GB at most. Scale retention with disk, not
+  architecture.
+- Collector RAM target is **under 50MB** under load. If it climbs past that,
+  something is wrong — that's a bug to fix, not a reason to scale out.

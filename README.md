@@ -61,6 +61,7 @@ import { spyglass } from "@spyglass/sdk";
 spyglass.init({
   endpoint: "https://telemetry.internal.acme.dev",
   app: "inventory",
+  key: "sg_live_…",    // app key — must match the collector config
   user: { id: "anand", name: "Anand" }, // identified by design
   replay: true,        // default true — rrweb + console, lazy-loaded
   network: true,       // default true — method, status, duration, sizes
@@ -77,7 +78,7 @@ Next.js app-router pageviews wire up automatically:
 ```tsx
 import { SpyglassProvider } from "@spyglass/sdk/next";
 
-<SpyglassProvider config={{ endpoint, app: "inventory", user }}>
+<SpyglassProvider config={{ endpoint, app: "inventory", key, user }}>
   {children}
 </SpyglassProvider>
 ```

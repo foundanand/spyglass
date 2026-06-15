@@ -1,0 +1,82 @@
+---
+title: Privacy
+description: What spyglass records, what it never records, and how to tune masking and body capture. Internal does not mean careless — sensible defaults, everything on your own machine.
+---
+
+spyglass is built for closed, internal apps with identified users. That removes
+whole categories of privacy machinery you don't need — and it raises the bar on
+handling the data you *do* collect, because it's tied to real people. The
+defaults are conservative; everything stays on the operator's machine.
+
+---
+
+## It never leaves your infrastructure
+
+There is **no phone-home and no external call, ever.** The SDK talks only to the
+collector you configure; the collector talks to nobody. No analytics vendor, no
+CDN beacon, no telemetry-about-the-telemetry. The data lives in your `dataDir`
+and nowhere else.
+
+## Input masking
+
+Replays mask input values according to `maskInputs`:
+
+| Value | Behavior |
+|---|---|
+| `"password"` *(default)* | Mask `<input type="password">`; other fields recorded. |
+| `"all"` | Mask **every** input's value. Safest. |
+| `"none"` | Record all input values. Use only when you're sure no field is sensitive. |
+
+The minimum is always `"password"` — password fields are never recorded in plain
+text by default.
+
+## Network bodies are opt-in
+
+Network capture records **metadata only** by default — method, URL, status,
+duration, and sizes. Request and response **bodies are never captured** unless you
+explicitly allow-list route prefixes:
+
+```ts
+spyglass.init({
+  network: { bodies: ["/api/orders"] },  // only these get bodies
+});
+```
+
+Matched bodies are truncated to 2KB. Everything else stays metadata-only.
+
+## Headers are filtered
+
+`Authorization`, `Cookie`, and `Set-Cookie` are **never** recorded — not in
+metadata, not anywhere. There is no configuration that turns this off.
+
+## Autocapture is off by default
+
+Always-on DOM autocapture (recording every click and form interaction) is
+**opt-in** (`autocapture: true`) and off by default. When off, the code for it is
+never even loaded. Explicit `capture()` calls plus automatic pageviews give
+cleaner data without blanket DOM scraping. When on, form fields are recorded by
+**name only** — never their values, unless you've also set `maskInputs: "none"`.
+
+## Retention
+
+- **Replays** auto-expire after 21 days by default
+  ([`retention.replays_days`](/docs/configuration#retention)). They're the bulky,
+  most-sensitive data, so they don't accumulate forever.
+- **Events** are tiny and kept by default; set `retention.events_days` to expire
+  them too.
+
+Old data deletes itself on a daily in-process sweep — no cron, no manual cleanup.
+
+---
+
+## What spyglass deliberately does *not* do
+
+Because it's for authenticated internal tools, several things are out of scope by
+design — less surface area, fewer privacy obligations:
+
+- **No anonymous-visitor tracking.** Every session is an identified user; there's
+  no logged-out-stranger analytics.
+- **No cookie-consent machinery.** No GDPR banners for tracking the public,
+  because it doesn't track the public.
+- **No ad attribution.** No UTM/campaign tracking — you run no ads through it.
+- **No third parties.** Nothing is shared, sold, or sent anywhere.

@@ -1,6 +1,13 @@
 {
   "title": "spyglass",
   "pages": [
-    "index"
+    "index",
+    "getting-started",
+    "sdk",
+    "configuration",
+    "dashboard",
+    "deployment",
+    "privacy",
+    "api"
   ]
 }

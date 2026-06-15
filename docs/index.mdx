@@ -21,3 +21,28 @@ In a closed internal system, every session is recorded continuously with
 identified users. "What happened when the bug occurred" stops being a *capture*
 problem and becomes a *query* over data already on disk — so bug reporting is a
 view layer, nearly free.
+
+## Start here
+
+<Cards>
+  <Card title="Getting started" href="/docs/getting-started" description="Run the collector, wire the SDK, see your first events — in about five minutes." />
+  <Card title="SDK reference" href="/docs/sdk" description="init, capture, setUser, report, and every config option." />
+  <Card title="Configuration" href="/docs/configuration" description="The spyglass.config.json file in full: apps, keys, retention, auth." />
+  <Card title="Dashboard" href="/docs/dashboard" description="A tour of every view, including the incident slice." />
+  <Card title="Deployment" href="/docs/deployment" description="Docker, the static binary, auth, retention, and backup." />
+  <Card title="API reference" href="/docs/api" description="Every collector HTTP endpoint, with parameters and responses." />
+</Cards>
+
+## How it fits together
+
+```
+@spyglass/sdk  ──batched JSON / gzipped replay──▶  spyglassd (one Go binary)
+(in your app)                                       ├─ SQLite (events + sessions)
+                                                    ├─ disk (gzipped replay chunks)
+                                                    └─ embedded dashboard at /
+```
+
+The SDK (~5KB gzipped) records events, replay, network, and errors and ships them
+to the collector. The collector stores everything in one SQLite file plus replay
+blobs on disk, and serves the dashboard from the same binary. That's the whole
+system — see [Getting started](/docs/getting-started) to stand it up.
