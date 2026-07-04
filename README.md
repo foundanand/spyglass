@@ -13,7 +13,7 @@ bug occurred" isn't a capture problem — it's a query over data already on disk
 - **~5KB gzipped SDK.** rrweb loads lazily (~85KB gz), only when replay is on.
 - **~20MB RAM collector, ~21MB Docker image.** Pure-Go SQLite (`modernc.org/sqlite`), no CGo, static binary.
 - **Configure once, never touch again.** One JSON file is the entire ops story.
-- **GPL-3.0, self-hosted, no phone-home.** Everything stays on your machine.
+- **Air-gap-ready — no phone-home, ever.** Zero outbound calls; runs fully disconnected. GPL-3.0, self-hosted — everything stays on your machine. ([enforced by a test](collector/airgap_test.go).)
 
 ---
 
@@ -188,6 +188,51 @@ spyglass.report(comment, extra?);          // programmatic bug report
   `Authorization` / `Cookie` headers are **never** recorded.
 - Replays auto-expire (21 days default); events are tiny and kept by default.
 - No phone-home, no external calls, ever. Everything stays on the operator's box.
+
+---
+
+## Air-gapped / offline deployment
+
+spyglass is built to run inside a disconnected enclave. At runtime the **only**
+network traffic is *browser → collector*, and both live inside your network —
+nothing ever leaves it.
+
+**What's guaranteed (and tested):**
+
+- **The collector makes zero outbound connections.** No update check, no
+  telemetry, no license call, no LLM. Any future opt-in egress must be
+  explicitly marked and reviewed — see the guard below.
+- **The dashboard loads entirely from the binary.** No CDN, no Google Fonts, no
+  remote scripts or stylesheets. A browser with no internet renders it fully.
+- **The SDK only ever talks to your configured `endpoint`** (your collector).
+  rrweb is bundled into your app at build time — it is never fetched from a CDN.
+
+This is enforced by [`collector/airgap_test.go`](collector/airgap_test.go),
+which fails the build (and CI) if an outbound call or external asset slips in.
+
+**Moving it across the boundary:**
+
+- **Collector:** one static, CGo-free binary (`make release` → `darwin/linux ×
+  amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
+  is nothing to install and no runtime dependency to resolve. The database is a
+  single SQLite file, so backup and restore are `cp`.
+- **SDK:** not on npm — `pnpm pack` it to a tarball outside the enclave and
+  vendor it (`pnpm add file:./vendor/spyglass-sdk-*.tgz`), or build your app
+  where the tarball is reachable. Its only runtime dep, rrweb, is bundled.
+- **Upgrades are staggered-safe.** The wire format is versioned (`/v1/`), so the
+  SDK and collector can be updated independently — no lockstep redeploy across
+  the boundary.
+
+**The one thing to watch:** optional features that *would* egress — a Slack
+webhook on new bug reports, or the auto-summary that POSTs an incident slice to
+an LLM — are **off by default and not yet implemented**. If you enable one, point
+it at an in-enclave endpoint (e.g. a local model), and note that the air-gap
+guard test requires any such call to carry an inline `// airgap:allow <reason>`
+marker so the exception is deliberate and documented, not accidental.
+
+See also the **Content-Security-Policy** and **web-font** notes in the
+[integration checklist](#3-integration-checklist) — both are the browser side of
+staying fully self-contained.
 
 ---
 

@@ -1,0 +1,53 @@
+name: CI
+
+# Runs on every push and pull request to master. With branch protection
+# requiring PRs into master, wiring "collector" as a required status check
+# means the air-gap guarantee (collector/airgap_test.go) is enforced before
+# anything can merge — no accidental outbound call or CDN asset gets in.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  collector:
+    name: collector (build + air-gap guard)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: collector/go.sum
+      - name: go vet
+        working-directory: collector
+        run: go vet ./...
+      - name: go test (includes air-gap guard)
+        working-directory: collector
+        run: go test ./...
+      - name: build static binary (CGO off, pure-Go SQLite)
+        working-directory: collector
+        run: CGO_ENABLED=0 go build -o /dev/null .
+
+  sdk:
+    name: sdk (tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: typecheck
+        run: pnpm --filter @spyglass/sdk typecheck
+      - name: unit tests
+        run: pnpm --filter @spyglass/sdk test
