@@ -12,19 +12,6 @@ importers:
         specifier: ^3.8.4
         version: 3.8.4
 
-  collector/dashboard/ui:
-    dependencies:
-      preact:
-        specifier: ^10.29.2
-        version: 10.29.2
-      rrweb-player:
-        specifier: ^2.0.1
-        version: 2.0.1
-    devDependencies:
-      esbuild:
-        specifier: ^0.28.1
-        version: 0.28.1
-
   examples/nextjs-demo:
     dependencies:
       '@spyglass/sdk':
@@ -781,12 +768,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rrweb/packer@2.0.1':
-    resolution: {integrity: sha512-2U8RkVe+ZK3gTtmKjJKjoh6QL1Q6wIlt3sBTJeCPERLr9e0JIimNrZ1+bog1L30CTVP3ULuDf5Ba7RZO+QNcHg==}
-
-  '@rrweb/replay@2.0.1':
-    resolution: {integrity: sha512-UrZONirb8o4t0urg1aJ8aMSWhNHvJ3a2usuVbPJIm/edyFbwTvvY9sg/rrXccyXOntFhhp73R5nCretODRZcCw==}
-
   '@rrweb/rrweb-plugin-console-record@2.0.1':
     resolution: {integrity: sha512-RME43NChwCv+vOJtaDuiLU7DrM+UkUFPqv6Z+CaQjl3cKRRhoO3nB3h88UvKsYS8QiPxt+yBLKay/43ELRcrTg==}
     peerDependencies:
@@ -804,9 +785,6 @@ packages:
 
   '@swc/helpers@0.5.15':
     resolution: {integrity: sha512-JQ5TuMi45Owi4/BIMAJBoSQoOJu12oOk/gADqlcUL9JEdHB8vyjUSsxqeNXnmXHjYKMi2WcYtezGEEhqUI/E2g==}
-
-  '@tsconfig/svelte@1.0.13':
-    resolution: {integrity: sha512-5lYJP45Xllo4yE/RUBccBT32eBlRDbqN8r1/MIvQbKxW3aFqaYPCNgm8D5V20X4ShHcwvYWNlKg3liDh1MlBoA==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -943,9 +921,6 @@ packages:
       picomatch:
         optional: true
 
-  fflate@0.4.8:
-    resolution: {integrity: sha512-FJqqoDBR00Mdj9ppamLa/Y7vxm+PRmNWA67N846RvsoYVMKB4q3y/de5PA7gUmRMYK/8CMz2GDZQmCRN1wBcWA==}
-
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -1031,9 +1006,6 @@ packages:
     resolution: {integrity: sha512-FfR8sjd4em2T6fb3I2MwAJU7HWVMr9zba+enmQeeWFfCbm+UOC/0X4DS8XtpUTMwWMGbjKYP7xjfNekzyGmB3A==}
     engines: {node: ^10 || ^12 || >=14}
 
-  preact@10.29.2:
-    resolution: {integrity: sha512-7tNmwg/7mzzAoB/8kSg6Hl37JraAZw3Z3A0JSY7VXlZwo82Xn0G7wKbNNs2qoF4ZEEsQGTwDAroNdqKs1ofJxQ==}
-
   prettier@3.8.4:
     resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
     engines: {node: '>=14'}
@@ -1063,9 +1035,6 @@ packages:
 
   rrdom@2.0.1:
     resolution: {integrity: sha512-z8GdQWFmVfa8GpcGkAqfBXseb89z0ciTPSBkID0qr0i6KHCye1MdQ4VoXFf0Ejp3ELe/c7AObu4zsbSbMT+hiw==}
-
-  rrweb-player@2.0.1:
-    resolution: {integrity: sha512-v8PVnOy7Q3kXqWriGuzZo4ndGEV06nCMRkH/jSHweJfTLwpLqb2evgMj0S5FwQLsN2X1VM+L2/i7QWGJfgj9zw==}
 
   rrweb-snapshot@2.0.1:
     resolution: {integrity: sha512-H8TA29ct2tpYtr5oaB0N+ksRY9bhEErfAYcKbce4+w8lqEUQChpKZd41HpBJLkp04b5QUfWUg4v6r9Okf8r7vA==}
@@ -1685,16 +1654,6 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.62.0':
     optional: true
 
-  '@rrweb/packer@2.0.1':
-    dependencies:
-      '@rrweb/types': 2.0.1
-      fflate: 0.4.8
-
-  '@rrweb/replay@2.0.1':
-    dependencies:
-      '@rrweb/types': 2.0.1
-      rrweb: 2.0.1
-
   '@rrweb/rrweb-plugin-console-record@2.0.1(@rrweb/utils@2.0.1)(rrweb@2.0.1)':
     dependencies:
       '@rrweb/utils': 2.0.1
@@ -1709,8 +1668,6 @@ snapshots:
   '@swc/helpers@0.5.15':
     dependencies:
       tslib: 2.8.1
-
-  '@tsconfig/svelte@1.0.13': {}
 
   '@types/chai@5.2.3':
     dependencies:
@@ -1887,8 +1844,6 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.4
 
-  fflate@0.4.8: {}
-
   fsevents@2.3.3:
     optional: true
 
@@ -1986,8 +1941,6 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  preact@10.29.2: {}
-
   prettier@3.8.4: {}
 
   punycode@2.3.1: {}
@@ -2035,12 +1988,6 @@ snapshots:
   rrdom@2.0.1:
     dependencies:
       rrweb-snapshot: 2.0.1
-
-  rrweb-player@2.0.1:
-    dependencies:
-      '@rrweb/packer': 2.0.1
-      '@rrweb/replay': 2.0.1
-      '@tsconfig/svelte': 1.0.13
 
   rrweb-snapshot@2.0.1:
     dependencies:

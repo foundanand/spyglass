@@ -13,6 +13,7 @@
 
 ### Changed
 
+- **pnpm workspace** ([pnpm-workspace.yaml](../pnpm-workspace.yaml)) — dropped `collector/dashboard/ui` from the workspace. The dashboard is npm-managed (its own `package-lock.json`, built via `npm` in the Makefile/CI); having it in the pnpm workspace too meant dual dependency management, which had already drifted the root `pnpm-lock.yaml` (`rrweb-player` vs `rrweb`) and broke `pnpm install --frozen-lockfile` in CI. Regenerated the lockfile so pnpm owns `sdk` + `examples` and npm owns the dashboard, with no overlap.
 - **README intro** now leads with the air-gap positioning: the "no phone-home" bullet calls out *zero outbound calls / runs fully disconnected* and links to the enforcing test.
 - **Repository metadata** (GitHub): description rewritten to lead with "Air-gap-friendly … runs fully disconnected — zero outbound calls"; added `air-gapped` and `offline-first` topics.
 

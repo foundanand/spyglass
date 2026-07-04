@@ -1,4 +1,6 @@
 packages:
   - "sdk"
   - "examples/*"
-  - "collector/dashboard/ui"
+  # collector/dashboard/ui is npm-managed (its own package-lock.json, built via
+  # `npm` in the Makefile / CI). Keeping it out of the pnpm workspace avoids
+  # dual dependency management and the lockfile drift that causes.
