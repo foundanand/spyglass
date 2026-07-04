@@ -76,12 +76,40 @@ func TestUpsertSession(t *testing.T) {
 	}
 }
 
+func TestListSessionsStats(t *testing.T) {
+	st := openTestStore(t)
+
+	if err := st.UpsertSession("sid1", "demo", "u1", 1000, 5000, nil); err != nil {
+		t.Fatalf("UpsertSession: %v", err)
+	}
+
+	_ = st.InsertEvents([]store.Event{
+		{Ts: 1000, App: "demo", UserID: "u1", SessionID: "sid1", Type: "event", Name: "click"},
+		{Ts: 2000, App: "demo", UserID: "u1", SessionID: "sid1", Type: "pageview", Name: "/home"},
+		{Ts: 3000, App: "demo", UserID: "u1", SessionID: "sid1", Type: "error", Name: "boom"},
+	})
+
+	sessions, err := st.ListSessions(10)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("got %d sessions, want 1", len(sessions))
+	}
+	if sessions[0].EventCount != 3 {
+		t.Errorf("event_count = %d, want 3", sessions[0].EventCount)
+	}
+	if sessions[0].ErrorCount != 1 {
+		t.Errorf("error_count = %d, want 1", sessions[0].ErrorCount)
+	}
+}
+
 func TestQueryEventsFilters(t *testing.T) {
 	st := openTestStore(t)
 
 	_ = st.InsertEvents([]store.Event{
 		{Ts: 1000, App: "a1", UserID: "alice", SessionID: "s1", Type: "event", Name: "click"},
-		{Ts: 2000, App: "a1", UserID: "bob", SessionID: "s2", Type: "pageview", Name: "/home"},
+		{Ts: 2000, App: "a1", UserID: "bob", SessionID: "s1", Type: "pageview", Name: "/home"},
 		{Ts: 3000, App: "a2", UserID: "alice", SessionID: "s3", Type: "error", Name: "boom"},
 	})
 
@@ -94,6 +122,7 @@ func TestQueryEventsFilters(t *testing.T) {
 		{"by user", store.EventQuery{UserID: "alice"}, 2},
 		{"by type", store.EventQuery{EventType: "pageview"}, 1},
 		{"by app", store.EventQuery{App: "a2"}, 1},
+		{"by session", store.EventQuery{SessionID: "s1"}, 2},
 		{"from", store.EventQuery{From: 2000}, 2},
 		{"to", store.EventQuery{To: 1000}, 1},
 		{"combined", store.EventQuery{UserID: "alice", EventType: "error"}, 1},

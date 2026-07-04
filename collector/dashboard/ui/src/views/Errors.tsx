@@ -1,4 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
+import { Icon } from "../components/Icon.js";
+import { Avatar } from "../components/Avatar.js";
+import { StatTile, StatStrip } from "../components/StatTile.js";
+import { SkeletonRows } from "../components/Skeleton.js";
 
 interface Event {
   id: number;
@@ -67,9 +71,18 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
 
   useEffect(() => { void load(); }, [filterUser, typeFilter]);
 
+  const errorCount = events.filter((e) => e.type === "error").length;
+  const reportCount = events.filter((e) => e.type === "bug_report").length;
+  const usersAffected = new Set(events.map((e) => e.user_id)).size;
+
   return (
     <div>
       <h2>Errors &amp; Reports</h2>
+      <StatStrip>
+        <StatTile label="errors" value={errorCount} accent="error" />
+        <StatTile label="reports" value={reportCount} accent="bug" />
+        <StatTile label="users affected" value={usersAffected} accent="accent" />
+      </StatStrip>
       <div class="toolbar">
         <select
           value={typeFilter}
@@ -84,11 +97,11 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
           value={filterUser}
           onInput={(e) => setFilterUser((e.target as HTMLInputElement).value)}
         />
-        <button onClick={load}>Refresh</button>
+        <button onClick={load}><Icon name="refresh" /> Refresh</button>
         {loading && <span class="ts">Loading…</span>}
       </div>
       {fetchError && <div style="color:var(--red);margin-bottom:1rem">{fetchError}</div>}
-      <p class="muted" style="font-size:12px;margin-bottom:8px">Click any row to open the incident view</p>
+      {loading && events.length === 0 && <SkeletonRows rows={4} />}
       <table>
         <thead>
           <tr>
@@ -98,11 +111,19 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
             <th>message</th>
             <th>source</th>
             <th>session</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {events.length === 0 && !loading && (
-            <tr><td colSpan={6} class="empty">no events — throw something or submit a report</td></tr>
+            <tr>
+              <td colSpan={7}>
+                <div class="empty-state">
+                  <Icon name={typeFilter === "error" ? "error" : typeFilter === "bug_report" ? "bug" : "inbox"} size={24} />
+                  <p>no events — throw something or submit a report</p>
+                </div>
+              </td>
+            </tr>
           )}
           {events.map((e) => (
             <tr
@@ -113,7 +134,7 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
             >
               <td class="ts">{fmtTs(e.ts)}</td>
               <td><span class={`badge badge-${e.type}`}>{e.type === "bug_report" ? "report" : "error"}</span></td>
-              <td>{e.user_id}</td>
+              <td><span style="display:inline-flex;align-items:center;gap:6px"><Avatar id={e.user_id} size={18} />{e.user_id}</span></td>
               <td class="err-msg">
                 <span class="err-name">{e.name}</span>
                 {e.type === "error" && <StackRow stack={e.props?.stack} />}
@@ -123,6 +144,7 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
               </td>
               <td class="ts">{String(e.props?.source ?? e.url ?? "")}</td>
               <td class="ts" title={e.session_id}>{e.session_id.slice(0, 12)}…</td>
+              <td class="row-chevron"><Icon name="chevron-right" /></td>
             </tr>
           ))}
         </tbody>

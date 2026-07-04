@@ -1,4 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
+import { Icon } from "../components/Icon.js";
+import { Avatar } from "../components/Avatar.js";
+import { RelTime } from "../components/RelTime.js";
+import { SkeletonRows } from "../components/Skeleton.js";
 
 interface UserSummary {
   user_id: string;
@@ -21,10 +25,6 @@ interface Event {
 
 function fmtTs(ms: number) {
   return new Date(ms).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
-
-function fmtDate(ms: number) {
-  return new Date(ms).toLocaleString();
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -124,17 +124,25 @@ export function UserTimeline() {
   return (
     <div class="timeline-root">
       <div class="timeline-sidebar">
-        <h2>Users</h2>
-        {users.length === 0 && <p class="empty">No users yet</p>}
+        <h2><Icon name="user" /> Users</h2>
+        {users.length === 0 && (
+          <div class="empty-state">
+            <Icon name="user" size={24} />
+            <p>No users yet</p>
+          </div>
+        )}
         {users.map((u) => (
           <div
             key={`${u.user_id}:${u.app}`}
             class={`timeline-user-item${selected?.user_id === u.user_id && selected.app === u.app ? " active" : ""}`}
             onClick={() => selectUser(u)}
           >
-            <span class="tl-user">{u.user_id}</span>
-            <span class="tl-meta">{u.app} · {u.session_count} session{u.session_count !== 1 ? "s" : ""}</span>
-            <span class="tl-meta">{fmtDate(u.last_seen)}</span>
+            <Avatar id={u.user_id} size={26} />
+            <div class="tl-user-body">
+              <span class="tl-user">{u.user_id}</span>
+              <span class="tl-meta">{u.app} · {u.session_count} session{u.session_count !== 1 ? "s" : ""}</span>
+              <span class="tl-meta"><RelTime ts={u.last_seen} /></span>
+            </div>
           </div>
         ))}
       </div>
@@ -149,6 +157,7 @@ export function UserTimeline() {
               {loading && <span class="ts">Loading…</span>}
             </div>
             {error && <div class="tl-error">{error}</div>}
+            {loading && <SkeletonRows rows={5} />}
             {!loading && events.length === 0 && !error && (
               <p class="empty">No events recorded for this user</p>
             )}
@@ -161,7 +170,7 @@ export function UserTimeline() {
                 <div key={sid} class="tl-session">
                   <div class="tl-session-header">
                     <span class="tl-session-id" title={sid}>{sid.slice(0, 12)}…</span>
-                    <span class="ts">{fmtTs(start)} – {fmtTs(end)}</span>
+                    <span class="ts"><Icon name="clock" size={12} /> {fmtTs(start)} – {fmtTs(end)}</span>
                     {errorCount > 0 && (
                       <span class="tl-err-badge">{errorCount} error{errorCount !== 1 ? "s" : ""}</span>
                     )}

@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from "preact/hooks";
-import "rrweb-player/dist/style.css";
+import "rrweb/dist/style.css";
+import { createReplaySurface, type Marker, type ReplayHandle } from "./replaySurface";
+import { Icon } from "../components/Icon.js";
+import { Avatar } from "../components/Avatar.js";
+import { PropsChips } from "../components/PropsChips.js";
 
 interface SpyEvent {
   id: number;
@@ -38,12 +42,7 @@ const CONSOLE_PLUGIN = "@rrweb/rrweb-plugin-console-record";
 
 function fmtTs(ms: number) {
   return new Date(ms).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
+    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
   });
 }
 
@@ -65,81 +64,92 @@ function StackBlock({ stack }: { stack?: unknown }) {
   );
 }
 
-function BreadcrumbsTable({ events }: { events: SpyEvent[] }) {
-  const TYPE_COLORS: Record<string, string> = {
-    event: "badge-event",
-    pageview: "badge-pageview",
-    error: "badge-error",
-    network: "badge-network",
-    bug_report: "badge-bug_report",
-  };
+const TYPE_BADGE: Record<string, string> = {
+  event: "badge-event", pageview: "badge-pageview", error: "badge-error",
+  network: "badge-network", bug_report: "badge-bug_report",
+};
 
+function BreadcrumbsTable({
+  events, incidentTs, nowTs, onSeek,
+}: {
+  events: SpyEvent[]; incidentTs: number; nowTs: number; onSeek: (ts: number) => void;
+}) {
+  const nowRow = lastLe(events, nowTs);
   return (
     <table>
       <thead>
-        <tr>
-          <th>time</th>
-          <th>type</th>
-          <th>name / url</th>
-          <th>details</th>
-        </tr>
+        <tr><th>time</th><th>type</th><th>name / url</th><th>details</th></tr>
       </thead>
       <tbody>
-        {events.length === 0 && (
-          <tr><td colSpan={4} class="empty">no breadcrumbs</td></tr>
-        )}
-        {events.map((e) => (
-          <tr key={e.id}>
-            <td class="ts">{fmtTs(e.ts)}</td>
-            <td><span class={`badge ${TYPE_COLORS[e.type] ?? "badge-event"}`}>{e.type}</span></td>
-            <td>{e.name || e.url || "—"}</td>
-            <td class="muted" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-              {e.props ? JSON.stringify(e.props) : ""}
-            </td>
-          </tr>
-        ))}
+        {events.length === 0 && (<tr><td colSpan={4} class="empty">no breadcrumbs</td></tr>)}
+        {events.map((e) => {
+          const isIncident = e.ts === incidentTs;
+          const isNow = nowTs > 0 && e.ts === nowRow;
+          return (
+            <tr
+              key={e.id}
+              class={`row-clickable${isIncident ? " row-error" : ""}${isNow ? " now" : ""}`}
+              onClick={() => onSeek(e.ts)}
+              title="Jump to this moment"
+            >
+              <td class="ts">{fmtTs(e.ts)}</td>
+              <td><span class={`badge ${TYPE_BADGE[e.type] ?? "badge-event"}`}>{e.type}</span></td>
+              <td>{e.name || e.url || "—"}</td>
+              <td><PropsChips props={e.props} max={3} /></td>
+            </tr>
+          );
+        })}
       </tbody>
     </table>
   );
 }
 
-function NetworkWaterfall({ events }: { events: SpyEvent[] }) {
-  const networkEvents = events.filter((e) => e.type === "network");
-  if (networkEvents.length === 0) return <p class="empty">no network requests in window</p>;
+// ts of the last breadcrumb at/before nowTs (for the "now" row highlight).
+function lastLe(events: SpyEvent[], nowTs: number): number {
+  let t = -1;
+  for (const e of events) if (e.ts <= nowTs) t = e.ts;
+  return t;
+}
 
-  // Compute relative bar widths based on duration.
-  const maxDuration = Math.max(
-    ...networkEvents.map((e) => (e.props?.duration_ms as number) ?? 0),
-    1
-  );
+function NetworkWaterfall({
+  events, onSeek, nowTs,
+}: {
+  events: SpyEvent[]; onSeek: (ts: number) => void; nowTs: number;
+}) {
+  const net = events.filter((e) => e.type === "network");
+  if (net.length === 0) return <p class="empty">no network requests in window</p>;
+
+  // Real waterfall: position each bar by its start offset within the window.
+  const starts = net.map((e) => e.ts);
+  const ends = net.map((e) => e.ts + (Number(e.props?.duration_ms) || 0));
+  const winStart = Math.min(...starts);
+  const winEnd = Math.max(...ends);
+  const span = Math.max(1, winEnd - winStart);
+  const nowRow = lastLe(net, nowTs);
 
   return (
     <table class="network-table">
       <thead>
-        <tr>
-          <th>method</th>
-          <th>url</th>
-          <th>status</th>
-          <th>duration</th>
-          <th style="width:120px">waterfall</th>
-        </tr>
+        <tr><th>method</th><th>url</th><th>status</th><th>duration</th><th style="width:160px">waterfall</th></tr>
       </thead>
       <tbody>
-        {networkEvents.map((e, i) => {
+        {net.map((e, i) => {
           const method = String(e.props?.method ?? "GET");
           const status = Number(e.props?.status ?? 0);
           const dur = Number(e.props?.duration_ms ?? 0);
-          const pct = Math.round((dur / maxDuration) * 100);
+          const left = ((e.ts - winStart) / span) * 100;
+          const width = Math.max(1.5, (dur / span) * 100);
           const statusClass = status >= 500 ? "status-5xx" : status >= 400 ? "status-4xx" : status >= 300 ? "status-3xx" : "status-2xx";
           return (
-            <tr key={i}>
+            <tr key={i} class={`row-clickable${nowTs > 0 && e.ts === nowRow ? " now" : ""}`} onClick={() => onSeek(e.ts)}>
               <td class="ts">{method}</td>
-              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px"
-                title={e.name}>{e.name}</td>
+              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title={e.name}>{e.name}</td>
               <td><span class={`status-badge ${statusClass}`}>{status || "—"}</span></td>
               <td class="ts">{dur ? fmtDuration(dur) : "—"}</td>
               <td>
-                <div class="waterfall-bar" style={`width:${pct}%;min-width:2px`} />
+                <div class="waterfall-track">
+                  <div class="waterfall-bar" style={`left:${left}%;width:${width}%`} />
+                </div>
               </td>
             </tr>
           );
@@ -149,12 +159,21 @@ function NetworkWaterfall({ events }: { events: SpyEvent[] }) {
   );
 }
 
-function ConsolePane({ logs }: { logs: ConsoleLine[] }) {
+function ConsolePane({
+  logs, nowIdx, onSeek,
+}: {
+  logs: ConsoleLine[]; nowIdx: number; onSeek: (ts: number) => void;
+}) {
   if (logs.length === 0) return <p class="empty">no console output in replay</p>;
   return (
     <div class="console-lines">
       {logs.map((l, i) => (
-        <div key={i} class={`console-line level-${l.level}`}>
+        <div
+          key={i}
+          class={`console-line level-${l.level}${i === nowIdx ? " now" : ""}`}
+          onClick={() => onSeek(l.ts)}
+          title="Jump to this moment"
+        >
           <span class="console-ts">{new Date(l.ts).toLocaleTimeString()}</span>
           <span class="console-level">{l.level}</span>
           <span class="console-msg">
@@ -176,9 +195,12 @@ export function Incident({ eventId, onBack }: IncidentProps) {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [replayLoading, setReplayLoading] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLine[]>([]);
+  const [nowTs, setNowTs] = useState(0);
+  const [nowIdx, setNowIdx] = useState(-1);
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<ReplayHandle | null>(null);
+  const firstTsRef = useRef(0);
+  const logsRef = useRef<ConsoleLine[]>([]);
 
   useEffect(() => {
     fetch(`/v1/incidents/${eventId}`)
@@ -186,35 +208,31 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<IncidentData>;
       })
-      .then((d) => {
-        setData(d);
-      })
+      .then((d) => setData(d))
       .catch((e: unknown) => setFetchError(String(e)));
   }, [eventId]);
 
-  // Load replay when incident data is ready and there's a replay_cue.
   useEffect(() => {
     if (!data?.replay_cue) return;
     void loadReplay(data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.session_id]);
 
   async function loadReplay(incident: IncidentData) {
     setReplayLoading(true);
     setConsoleLogs([]);
+    setNowTs(0);
+    setNowIdx(-1);
 
     try {
       if (playerRef.current) {
-        try { playerRef.current.$destroy(); } catch { /* noop */ }
+        try { playerRef.current.destroy(); } catch { /* noop */ }
         playerRef.current = null;
       }
-      if (playerContainerRef.current) {
-        playerContainerRef.current.innerHTML = "";
-      }
+      if (playerContainerRef.current) playerContainerRef.current.innerHTML = "";
 
-      // Fetch full manifest (seek requires the full event stream).
       const manifest = await fetch(`/v1/sessions/${incident.session_id}/replay`).then((r) => r.json());
       const chunks: { seq: number; ts: number; path: string }[] = manifest.chunks ?? [];
-
       if (chunks.length === 0) {
         setReplayLoading(false);
         return;
@@ -222,16 +240,12 @@ export function Incident({ eventId, onBack }: IncidentProps) {
 
       const allEvents: unknown[] = [];
       const logs: ConsoleLine[] = [];
-
       for (const chunk of chunks) {
         const events: unknown[] = await fetch(chunk.path).then((r) => r.json());
         for (const ev of events) {
           allEvents.push(ev);
           const e = ev as Record<string, unknown>;
-          if (
-            e.type === PLUGIN_EVENT &&
-            (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN
-          ) {
+          if (e.type === PLUGIN_EVENT && (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN) {
             const p = (e.data as Record<string, unknown>).payload as Record<string, unknown>;
             logs.push({
               ts: e.timestamp as number,
@@ -242,35 +256,45 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         }
       }
 
+      logs.sort((a, b) => a.ts - b.ts);
+      logsRef.current = logs;
       setConsoleLogs(logs);
 
       if (playerContainerRef.current && allEvents.length > 0) {
-        const mod = await import("rrweb-player");
-        const Player = (mod as Record<string, unknown>).default as new (opts: {
-          target: HTMLElement;
-          props: { events: unknown[]; width: number; height: number; autoPlay: boolean };
-        }) => Record<string, unknown>;
+        const firstEvent = allEvents[0] as Record<string, unknown>;
+        const firstTs = (firstEvent?.timestamp as number) ?? 0;
+        firstTsRef.current = firstTs;
 
-        playerRef.current = new Player({
-          target: playerContainerRef.current,
-          props: {
-            events: allEvents,
-            width: playerContainerRef.current.clientWidth || 900,
-            height: 480,
-            autoPlay: false,
-          },
+        playerRef.current = createReplaySurface(playerContainerRef.current, allEvents);
+
+        // Markers: the incident moment + every breadcrumb of interest.
+        const markers: Marker[] = [];
+        if (firstTs > 0) {
+          markers.push({ offset: incident.incident_ts - firstTs, kind: "incident", label: incident.event.name });
+          for (const b of incident.breadcrumbs) {
+            const offset = b.ts - firstTs;
+            if (offset < 0) continue;
+            if (b.type === "error") markers.push({ offset, kind: "error", label: b.name });
+            else if (b.type === "bug_report") markers.push({ offset, kind: "bug", label: b.name });
+            else if (b.type === "pageview") markers.push({ offset, kind: "pageview", label: b.name || b.url || "pageview" });
+          }
+          playerRef.current.setMarkers(markers);
+        }
+
+        // Sync breadcrumb/network/console highlight to playback.
+        playerRef.current.onTimeUpdate((offset) => {
+          const absTs = firstTs + offset;
+          setNowTs((prev) => (prev === absTs ? prev : absTs));
+          const ls = logsRef.current;
+          let idx = -1;
+          for (let i = 0; i < ls.length; i++) { if (ls[i].ts <= absTs) idx = i; else break; }
+          setNowIdx((prev) => (prev === idx ? prev : idx));
         });
 
         // Seek to 60s before the incident moment.
-        const firstEvent = allEvents[0] as Record<string, unknown>;
-        const firstTs = firstEvent?.timestamp as number ?? 0;
         if (firstTs > 0) {
           const seekMs = Math.max(0, incident.incident_ts - firstTs - 60_000);
-          setTimeout(() => {
-            try {
-              (playerRef.current as Record<string, (n: number) => void>)?.goto?.(seekMs);
-            } catch { /* player may not expose goto */ }
-          }, 300);
+          playerRef.current.goto(seekMs);
         }
       }
     } catch (err) {
@@ -280,10 +304,12 @@ export function Incident({ eventId, onBack }: IncidentProps) {
     }
   }
 
+  const seekToTs = (ts: number) => playerRef.current?.goto(ts - firstTsRef.current);
+
   if (fetchError) {
     return (
       <div>
-        <button class="back-btn" onClick={onBack}>← Back</button>
+        <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
         <div style="color:var(--red);margin-top:1rem">{fetchError}</div>
       </div>
     );
@@ -292,7 +318,7 @@ export function Incident({ eventId, onBack }: IncidentProps) {
   if (!data) {
     return (
       <div>
-        <button class="back-btn" onClick={onBack}>← Back</button>
+        <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
         <p class="empty">Loading incident…</p>
       </div>
     );
@@ -303,18 +329,17 @@ export function Incident({ eventId, onBack }: IncidentProps) {
 
   return (
     <div class="incident-root">
-      <button class="back-btn" onClick={onBack}>← Back</button>
+      <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
 
-      {/* Header */}
-      <div class="incident-header">
+      <div class={`incident-header${isBugReport ? " is-bug" : ""}`}>
         <span class={`badge ${isBugReport ? "badge-bug_report" : "badge-error"}`}>
-          {isBugReport ? "bug report" : "error"}
+          <Icon name={isBugReport ? "bug" : "error"} size={11} /> {isBugReport ? "bug report" : "error"}
         </span>
         <h2 class="incident-title">{ev.name}</h2>
         <div class="incident-meta">
           <span>{fmtTs(ev.ts)}</span>
           <span>·</span>
-          <span>{ev.user_id}</span>
+          <span style="display:inline-flex;align-items:center;gap:0.3rem"><Avatar id={ev.user_id} size={16} /> {ev.user_id}</span>
           <span>·</span>
           <span class="ts" title={ev.session_id}>{ev.session_id.slice(0, 12)}…</span>
           {ev.url && <><span>·</span><span class="muted">{ev.url}</span></>}
@@ -325,31 +350,25 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         )}
       </div>
 
-      {/* Replay */}
       <section class="incident-section">
-        <h3>Replay {replayLoading && <span class="ts">Loading…</span>}</h3>
+        <h3><Icon name="play" /> Replay {replayLoading && <span class="live-tag"><span class="live-dot" /> loading</span>}</h3>
         {!data.replay_cue && <p class="empty">No replay available for this session</p>}
-        {data.replay_cue && (
-          <div ref={playerContainerRef} class="player-container" />
-        )}
+        {data.replay_cue && <div ref={playerContainerRef} class="player-container" />}
       </section>
 
-      {/* Breadcrumbs */}
       <section class="incident-section">
-        <h3>Breadcrumbs <span class="count">({data.breadcrumbs.length})</span></h3>
-        <BreadcrumbsTable events={data.breadcrumbs} />
+        <h3><Icon name="clock" /> Breadcrumbs <span class="count">({data.breadcrumbs.length})</span></h3>
+        <BreadcrumbsTable events={data.breadcrumbs} incidentTs={data.incident_ts} nowTs={nowTs} onSeek={seekToTs} />
       </section>
 
-      {/* Network waterfall */}
       <section class="incident-section">
-        <h3>Network</h3>
-        <NetworkWaterfall events={data.breadcrumbs} />
+        <h3><Icon name="network" /> Network</h3>
+        <NetworkWaterfall events={data.breadcrumbs} nowTs={nowTs} onSeek={seekToTs} />
       </section>
 
-      {/* Console */}
       <section class="incident-section">
-        <h3>Console <span class="count">({consoleLogs.length})</span></h3>
-        <ConsolePane logs={consoleLogs} />
+        <h3><Icon name="network" /> Console <span class="count">({consoleLogs.length})</span></h3>
+        <ConsolePane logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />
       </section>
     </div>
   );

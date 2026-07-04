@@ -1,0 +1,17 @@
+{
+  "listen": ":7474",
+  "dataDir": "./data",
+  "apps": {
+    "dermat": {
+      "key": "sg_live_dermat_dfee88e1ec1d1c826fc4a940",
+      "origins": ["http://localhost:3000"]
+    }
+  },
+  "retention": {
+    "replays_days": 7,
+    "events_days": 0
+  },
+  "auth": {
+    "dashboard_password": "env:SPYGLASS_PASS"
+  }
+}

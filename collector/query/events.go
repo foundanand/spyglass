@@ -29,6 +29,7 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		UserID:    q.Get("user"),
 		EventType: q.Get("type"),
 		App:       q.Get("app"),
+		SessionID: q.Get("session"),
 	}
 	if s := q.Get("from"); s != "" {
 		eq.From, _ = strconv.ParseInt(s, 10, 64)

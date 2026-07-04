@@ -147,3 +147,72 @@ func TestSanitizeID(t *testing.T) {
 		}
 	}
 }
+
+func TestReplayPreflightAllowedOrigin(t *testing.T) {
+	apps := map[string]AppCfg{
+		"demo": {Key: "sg_test", Origins: []string{"http://localhost:3000"}},
+	}
+	h := NewReplayHandler(nil, apps, t.TempDir())
+
+	req := httptest.NewRequest(http.MethodOptions, "/v1/replay", nil)
+	req.Header.Set("Origin", "http://localhost:3000")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("preflight: expected 204, got %d", rr.Code)
+	}
+	if rr.Header().Get("Access-Control-Allow-Origin") != "http://localhost:3000" {
+		t.Error("expected Allow-Origin header on preflight")
+	}
+	if h := rr.Header().Get("Access-Control-Allow-Headers"); h != corsAllowHeaders {
+		t.Errorf("expected Allow-Headers %q, got %q", corsAllowHeaders, h)
+	}
+}
+
+func TestReplayPreflightDisallowedOrigin(t *testing.T) {
+	apps := map[string]AppCfg{
+		"demo": {Key: "sg_test", Origins: []string{"http://localhost:3000"}},
+	}
+	h := NewReplayHandler(nil, apps, t.TempDir())
+
+	req := httptest.NewRequest(http.MethodOptions, "/v1/replay", nil)
+	req.Header.Set("Origin", "https://evil.example.com")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("preflight: expected 403 for disallowed origin, got %d", rr.Code)
+	}
+}
+
+func TestReplayPostSetsCORSHeader(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	if err := st.UpsertSession("sessCORS", "demo", "u1", 1000, 1000, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	apps := map[string]AppCfg{
+		"demo": {Key: "sg_test", Origins: []string{"http://localhost:3000"}},
+	}
+	h := NewReplayHandler(st, apps, dir)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/replay?app=demo&session=sessCORS&seq=1&ts=1000",
+		bytes.NewReader([]byte{0x1f, 0x8b, 0x00}))
+	req.Header.Set("X-Spyglass-Key", "sg_test")
+	req.Header.Set("Origin", "http://localhost:3000")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("expected 204, got %d", rr.Code)
+	}
+	if rr.Header().Get("Access-Control-Allow-Origin") != "http://localhost:3000" {
+		t.Error("expected Allow-Origin header on actual replay POST")
+	}
+}

@@ -21,11 +21,21 @@ ARG VERSION=docker
 RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X main.version=${VERSION}" \
       -o /spyglassd .
+# Pre-create the data dir so it can be copied into the runtime image with
+# nonroot ownership below.
+RUN mkdir -p /data
 
 # --- stage 3: minimal runtime ---
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /spyglassd /spyglassd
-# Data (SQLite + replays) lives here; mount a volume to persist it.
+# Data (SQLite + replays) lives here; mount a volume to persist it. The dir is
+# owned by the distroless nonroot uid (65532) so the process can write to it and
+# the named volume inherits writable ownership on first mount. WORKDIR is / so
+# the default config's relative "./data" resolves onto this volume instead of an
+# ephemeral cwd-relative path (e.g. /home/nonroot/data) that is wiped on every
+# container recreate.
+COPY --from=build --chown=65532:65532 /data /data
+WORKDIR /
 VOLUME ["/data"]
 EXPOSE 7474
 ENTRYPOINT ["/spyglassd"]

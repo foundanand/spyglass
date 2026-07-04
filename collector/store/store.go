@@ -39,6 +39,7 @@ type EventQuery struct {
 	UserID    string
 	EventType string
 	App       string
+	SessionID string
 	From      int64
 	To        int64
 	Limit     int
@@ -153,6 +154,10 @@ func (s *Store) QueryEvents(q EventQuery) ([]Event, error) {
 		conds = append(conds, "app = ?")
 		args = append(args, q.App)
 	}
+	if q.SessionID != "" {
+		conds = append(conds, "session_id = ?")
+		args = append(args, q.SessionID)
+	}
 	if q.From > 0 {
 		conds = append(conds, "ts >= ?")
 		args = append(args, q.From)
@@ -246,6 +251,8 @@ type Session struct {
 	StartedAt  int64                  `json:"started_at"`
 	LastSeen   int64                  `json:"last_seen"`
 	ChunkCount int                    `json:"chunk_count"`
+	EventCount int                    `json:"event_count"`
+	ErrorCount int                    `json:"error_count"`
 	Meta       map[string]interface{} `json:"meta,omitempty"`
 }
 
@@ -534,9 +541,11 @@ func (s *Store) ListSessions(limit int) ([]Session, error) {
 		limit = 100
 	}
 	rows, err := s.db.Query(`
-		SELECT session_id, app, user_id, started_at, last_seen, chunk_count, meta
-		FROM sessions
-		ORDER BY last_seen DESC
+		SELECT s.session_id, s.app, s.user_id, s.started_at, s.last_seen, s.chunk_count, s.meta,
+		       (SELECT COUNT(*) FROM events e WHERE e.session_id = s.session_id) AS event_count,
+		       (SELECT COUNT(*) FROM events e WHERE e.session_id = s.session_id AND e.type = 'error') AS error_count
+		FROM sessions s
+		ORDER BY s.last_seen DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
@@ -548,7 +557,7 @@ func (s *Store) ListSessions(limit int) ([]Session, error) {
 	for rows.Next() {
 		var sess Session
 		var meta sql.NullString
-		if err := rows.Scan(&sess.SessionID, &sess.App, &sess.UserID, &sess.StartedAt, &sess.LastSeen, &sess.ChunkCount, &meta); err != nil {
+		if err := rows.Scan(&sess.SessionID, &sess.App, &sess.UserID, &sess.StartedAt, &sess.LastSeen, &sess.ChunkCount, &meta, &sess.EventCount, &sess.ErrorCount); err != nil {
 			return nil, err
 		}
 		if meta.Valid && meta.String != "" {

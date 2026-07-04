@@ -33,6 +33,7 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("POST /v1/events", ingest.NewEventsHandler(st, apps))
 	mux.Handle("OPTIONS /v1/events", ingest.NewEventsHandler(st, apps))
 	mux.Handle("POST /v1/replay", ingest.NewReplayHandler(st, apps, cfg.DataDir))
+	mux.Handle("OPTIONS /v1/replay", ingest.NewReplayHandler(st, apps, cfg.DataDir))
 
 	// Dashboard-facing routes are gated by the shared password (no-op if unset).
 	pw := cfg.Auth.DashboardPassword

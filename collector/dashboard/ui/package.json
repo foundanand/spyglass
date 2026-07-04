@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "preact": "^10.29.2",
-    "rrweb-player": "^2.0.1"
+    "rrweb": "^2.0.1"
   },
   "devDependencies": {
     "esbuild": "^0.28.1"

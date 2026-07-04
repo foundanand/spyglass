@@ -20,7 +20,7 @@ PostHog / Highlight / OpenReplay assume billion-event scale: ClickHouse, Kafka, 
 * Solves the *whole* problem (events + replay + errors + bug reports), not a slice of it.
 * Open-source, GPL-3.0, built first for our own projects, generalizable later.
 
-**The structural advantage:** in a closed internal system we record *every* session continuously, with identified users. So "what happened when the bug occurred" is not a capture problem (Jam solves it with in-browser ring buffers) — it's a query over data already on disk. Bug reporting becomes a view layer, nearly free.
+**The structural advantage:** in a closed internal system we record *every* session continuously, with identified users. So "what happened when the bug occurred" is not a capture problem (Jam/Capture.dev solve it with in-browser ring buffers) — it's a query over data already on disk. Bug reporting becomes a view layer, nearly free.
 
 ## 2. Non-goals
 
@@ -192,7 +192,7 @@ Plain embedded SPA (vanilla or Preact, no build complexity beyond esbuild). View
    * network waterfall (from `network` events)
    * console output (from the replay stream)
    * the comment/stack trace on top
-     This is Jam's product, derived as a *query* over data we already have.
+     This is Capture.dev/Jam's product, derived as a *query* over data we already have.
 5. **Simple aggregates** — DAU, top events, top pages, error counts by day. SQL `GROUP BY`, no more.
 6. *(Later, optional)* **Auto-summary** — POST the incident slice to an LLM for a one-paragraph writeup. Off by default; config key for an API endpoint.
 
@@ -251,7 +251,6 @@ spyglass/
 * Wire format is versioned (`/v1/`). SDK and collector may deploy independently.
 * Prefer deleting code to adding config. Every config key must justify itself against the dynamoip test (§1).
 * Dependencies: collector ≤5 Go deps; SDK runtime deps = rrweb only.
-* **Changelog before push.** Any change about to be pushed must have a matching entry in `changelog/`. Copy `changelog/template.md` to the next sequential `NNN-feature-name.md`, group changes by type, and note the files touched. Write it as part of the change, not after.
 
 ## 13. Open questions (decide during build, don't block on)
 

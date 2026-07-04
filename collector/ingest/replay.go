@@ -31,6 +31,12 @@ func NewReplayHandler(st *store.Store, apps map[string]AppCfg, dataDir string) *
 }
 
 func (h *ReplayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Replay chunks are sent cross-origin with a custom key header + gzip body,
+	// so the browser always preflights. Answer OPTIONS before anything else.
+	if r.Method == http.MethodOptions {
+		writePreflight(w, r, h.apps)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -44,6 +50,11 @@ func (h *ReplayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	appCfg, ok := h.apps[appName]
 	if !ok || appCfg.Key != key {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// CORS origin check + Allow-Origin header for the actual request.
+	if !allowOrigin(w, r.Header.Get("Origin"), appCfg.Origins) {
 		return
 	}
 

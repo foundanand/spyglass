@@ -44,7 +44,7 @@ func NewEventsHandler(st *store.Store, apps map[string]AppCfg) *EventsHandler {
 func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Handle CORS preflight: for OPTIONS we check origin against all apps.
 	if r.Method == http.MethodOptions {
-		h.handlePreflight(w, r)
+		writePreflight(w, r, h.apps)
 		return
 	}
 	if r.Method != http.MethodPost {
@@ -74,13 +74,8 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// CORS origin check for actual requests.
-	if origin := r.Header.Get("Origin"); origin != "" {
-		if !originAllowed(appCfg.Origins, origin) {
-			http.Error(w, "origin not allowed", http.StatusForbidden)
-			return
-		}
-		w.Header().Set("Access-Control-Allow-Origin", origin)
-		w.Header().Set("Vary", "Origin")
+	if !allowOrigin(w, r.Header.Get("Origin"), appCfg.Origins) {
+		return
 	}
 
 	// Rate limit by app.
@@ -120,32 +115,6 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = h.store.UpsertSession(sid, e.App, e.UserID, e.Ts, e.Ts, nil)
 	}
 
-	w.WriteHeader(http.StatusNoContent)
-}
-
-func (h *EventsHandler) handlePreflight(w http.ResponseWriter, r *http.Request) {
-	origin := r.Header.Get("Origin")
-	if origin == "" {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
-	// Allow if origin matches any configured app.
-	allowed := false
-	for _, app := range h.apps {
-		if originAllowed(app.Origins, origin) {
-			allowed = true
-			break
-		}
-	}
-	if !allowed {
-		w.WriteHeader(http.StatusForbidden)
-		return
-	}
-	w.Header().Set("Access-Control-Allow-Origin", origin)
-	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	w.Header().Set("Access-Control-Max-Age", "86400")
-	w.Header().Set("Vary", "Origin")
 	w.WriteHeader(http.StatusNoContent)
 }
 
