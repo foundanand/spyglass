@@ -8,7 +8,7 @@ import (
 	"github.com/foundanand/spyglass/collector/store"
 )
 
-// SessionsHandler handles GET /v1/query/sessions.
+// SessionsHandler handles GET /v1/query/sessions[?limit=&from=&to=].
 type SessionsHandler struct {
 	st *store.Store
 }
@@ -26,7 +26,9 @@ func (h *SessionsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sessions, err := h.st.ListSessions(limit)
+	from, to := timeWindow(r)
+
+	sessions, err := h.st.ListSessions(limit, from, to)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

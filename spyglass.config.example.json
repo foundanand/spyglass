@@ -13,5 +13,14 @@
   },
   "auth": {
     "dashboard_password": "env:SPYGLASS_PASS"
-  }
+  },
+
+  "//webhooks": "Optional, and the collector's ONLY outbound calls. Omit for zero egress. Point at an in-enclave receiver to keep the air gap intact.",
+  "//webhooks_example": {
+    "on_bug_report": "env:SG_WEBHOOK",
+    "on_new_error": "env:SG_WEBHOOK",
+    "dashboard_url": "https://spyglass.internal"
+  },
+
+  "//server_key": "Optional per-app secret for non-browser callers (worker, cron, CLI). Must differ from `key`; skips the CORS origin check. Omit for browsers-only."
 }

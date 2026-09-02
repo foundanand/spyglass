@@ -216,3 +216,89 @@ func TestReplayPostSetsCORSHeader(t *testing.T) {
 		t.Error("expected Allow-Origin header on actual replay POST")
 	}
 }
+
+// A duplicate seq must never truncate the chunk already on disk.
+//
+// The pre-fix SDK restarted its counter on every full page load, so a session
+// that reloaded sent seq=1 a second time and os.WriteFile silently replaced the
+// original. The collector now refuses: the existing file is authoritative and
+// the duplicate is rejected with 409.
+func TestReplayDuplicateSeqDoesNotTruncate(t *testing.T) {
+	dir := t.TempDir()
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if err := st.UpsertSession("sessDup", "demo", "u1", 1000, 1000, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	apps := map[string]AppCfg{"demo": {Key: "sg_test"}}
+	h := NewReplayHandler(st, apps, dir)
+
+	original := []byte{0x1f, 0x8b, 0x01, 0x02, 0x03, 0x04, 0x05}
+	replacement := []byte{0x1f, 0x8b, 0xff} // shorter, so a truncate is visible
+
+	post := func(body []byte, ts string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost,
+			"/v1/replay?app=demo&session=sessDup&seq=1&ts="+ts, bytes.NewReader(body))
+		r.Header.Set("X-Spyglass-Key", "sg_test")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+
+	if w := post(original, "1000"); w.Code != http.StatusNoContent {
+		t.Fatalf("first chunk: status = %d, want 204", w.Code)
+	}
+	if w := post(replacement, "99000"); w.Code != http.StatusConflict {
+		t.Fatalf("duplicate seq: status = %d, want 409", w.Code)
+	}
+
+	chunkPath := filepath.Join(dir, "replays", "sessDup", "000001.json.gz")
+	got, err := os.ReadFile(chunkPath)
+	if err != nil {
+		t.Fatalf("chunk missing after duplicate: %v", err)
+	}
+	if !bytes.Equal(got, original) {
+		t.Errorf("chunk was modified by a duplicate seq: got %v, want %v", got, original)
+	}
+
+	// The manifest must still describe the surviving chunk, not the rejected one.
+	raw, err := os.ReadFile(filepath.Join(dir, "replays", "sessDup", "meta.json"))
+	if err != nil {
+		t.Fatalf("meta.json: %v", err)
+	}
+	var meta replayMeta
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		t.Fatal(err)
+	}
+	if len(meta.Chunks) != 1 {
+		t.Fatalf("meta has %d chunks, want 1", len(meta.Chunks))
+	}
+	if meta.Chunks[0].Ts != 1000 {
+		t.Errorf("meta ts = %d, want 1000 (the rejected chunk must not update it)", meta.Chunks[0].Ts)
+	}
+
+	// chunk_count counts accepted writes, so it must agree with the files on disk.
+	sessions, err := st.ListSessions(50, 0, 0)
+	if err != nil {
+		t.Fatalf("list sessions: %v", err)
+	}
+	var count int
+	found := false
+	for _, s := range sessions {
+		if s.SessionID == "sessDup" {
+			count, found = s.ChunkCount, true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("session sessDup not found")
+	}
+	if count != 1 {
+		t.Errorf("chunk_count = %d, want 1 (must match the one file on disk)", count)
+	}
+}

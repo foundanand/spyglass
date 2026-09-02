@@ -26,7 +26,7 @@ Two consequences worth knowing:
 
 - **`git blame` is polluted** across those 14 source files. The standard remedy
   is a `.git-blame-ignore-revs` file listing this commit, which `git config
-  blame.ignoreRevsFile .git-blame-ignore-revs` then honours. Not added here —
+blame.ignoreRevsFile .git-blame-ignore-revs` then honours. Not added here —
   it needs this commit's SHA, so it is a deliberate follow-up.
 - **This will happen again** unless `format:check` becomes a CI step. It is one
   line in the `sdk` job and it is the only reason the drift went unnoticed.

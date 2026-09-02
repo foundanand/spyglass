@@ -180,3 +180,61 @@ func TestAppKeyMissingEnvIsAnError(t *testing.T) {
 		t.Errorf("error should name the field, got: %v", err)
 	}
 }
+
+// A server key equal to the browser key would hand every browser the ability to
+// skip the origin check, silently making the allowlist decorative.
+func TestServerKeyMustDifferFromBrowserKey(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.json")
+	write := func(body string) {
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	write(`{"apps":{"demo":{"key":"same","server_key":"same"}}}`)
+	if _, err := LoadConfig(path); err == nil {
+		t.Error("server_key equal to key should be rejected")
+	}
+
+	write(`{"apps":{"demo":{"key":"browser","server_key":"secret"}}}`)
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("distinct keys should load: %v", err)
+	}
+	if cfg.Apps["demo"].ServerKey != "secret" {
+		t.Errorf("server_key = %q", cfg.Apps["demo"].ServerKey)
+	}
+
+	// Absent server_key is the default posture: browsers only.
+	write(`{"apps":{"demo":{"key":"browser"}}}`)
+	cfg, err = LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Apps["demo"].ServerKey != "" {
+		t.Errorf("server_key should default to empty, got %q", cfg.Apps["demo"].ServerKey)
+	}
+}
+
+func TestServerKeyResolvesFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "c.json")
+	if err := os.WriteFile(path, []byte(
+		`{"apps":{"demo":{"key":"browser","server_key":"env:SG_TEST_SERVER_KEY"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := LoadConfig(path); err == nil {
+		t.Error("unset env var should fail loudly rather than leaving an empty key")
+	}
+
+	t.Setenv("SG_TEST_SERVER_KEY", "from-env")
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Apps["demo"].ServerKey != "from-env" {
+		t.Errorf("server_key = %q, want from-env", cfg.Apps["demo"].ServerKey)
+	}
+}

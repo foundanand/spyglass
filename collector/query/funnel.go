@@ -9,7 +9,7 @@ import (
 	"github.com/foundanand/spyglass/collector/store"
 )
 
-// FunnelHandler serves GET /v1/query/funnel?steps=a,b,c[&app=&from=&to=].
+// FunnelHandler serves GET /v1/query/funnel?steps=a,b,c[&app=&from=&to=&max_step_ms=].
 type FunnelHandler struct {
 	store *store.Store
 }
@@ -37,20 +37,33 @@ func (h *FunnelHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var from, to int64
-	if s := q.Get("from"); s != "" {
-		from, _ = strconv.ParseInt(s, 10, 64)
-	}
-	if s := q.Get("to"); s != "" {
-		to, _ = strconv.ParseInt(s, 10, 64)
+	from, to := timeWindow(r)
+
+	// max_step_ms caps how long a transition may take and still be *timed*; the
+	// conversion is counted regardless. Explicit 0 means no cap, for funnels
+	// that legitimately span days.
+	maxStep := store.DefaultMaxStepMs
+	if v := q.Get("max_step_ms"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 0 {
+			maxStep = n
+		}
 	}
 
-	res, err := h.store.Funnel(steps, q.Get("app"), from, to)
+	res, err := h.store.Funnel(store.FunnelQuery{
+		Steps:     steps,
+		App:       q.Get("app"),
+		From:      from,
+		To:        to,
+		MaxStepMs: maxStep,
+	})
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"steps": res}) //nolint:errcheck
+	json.NewEncoder(w).Encode(map[string]interface{}{ //nolint:errcheck
+		"steps":      res.Steps,
+		"to_convert": res.ToConvert,
+	})
 }

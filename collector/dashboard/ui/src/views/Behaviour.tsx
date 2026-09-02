@@ -1,9 +1,9 @@
 import { useEffect, useState } from "preact/hooks";
 import { Icon } from "../components/Icon.js";
 import { Sparkline } from "../components/Sparkline.js";
-import { StatTile, StatStrip } from "../components/StatTile.js";
 import { SkeletonRows } from "../components/Skeleton.js";
-import { Flows } from "./Flows.js";
+import { Flows, fmtDuration } from "./Flows.js";
+import { applyRange, tzOffsetMinutes, type TimeRange } from "../range.js";
 
 interface DayCount {
   day: string;
@@ -22,28 +22,64 @@ interface Aggregates {
   errors_by_day: DayCount[];
 }
 
+interface StepTiming {
+  p50_ms: number;
+  p90_ms: number;
+  samples: number;
+}
+
 interface FunnelStep {
   name: string;
   count: number;
+  /** Time from the previous step. Absent on step 1 and when nothing fits the cap. */
+  from_prev?: StepTiming | null;
+}
+
+/** Turn a YYYY-MM-DD bucket into an explicit one-day window for a drill-down. */
+function dayParams(day: string): string {
+  const start = new Date(`${day}T00:00:00`).getTime();
+  if (Number.isNaN(start)) return "";
+  return new URLSearchParams({ from: String(start), to: String(start + 86_400_000) }).toString();
 }
 
 // Bars renders a small horizontal bar chart from name/count rows.
-function Bars({ rows, empty }: { rows: { label: string; count: number }[]; empty: string }) {
+//
+// A row may carry an `href`, in which case it renders as a real anchor: every
+// aggregate should lead to the rows behind it, and a link nobody can tab to is
+// a link that does not exist.
+function Bars({
+  rows,
+  empty,
+}: {
+  rows: { label: string; count: number; href?: string; title?: string }[];
+  empty: string;
+}) {
   if (rows.length === 0) return <p class="empty">{empty}</p>;
   const max = Math.max(...rows.map((r) => r.count), 1);
   return (
     <div class="bars">
-      {rows.map((r, i) => (
-        <div key={i} class="bar-row">
-          <span class="bar-label" title={r.label}>
-            {r.label}
-          </span>
-          <span class="bar-track">
-            <span class="bar-fill" style={`width:${Math.round((r.count / max) * 100)}%`} />
-          </span>
-          <span class="bar-count">{r.count}</span>
-        </div>
-      ))}
+      {rows.map((r, i) => {
+        const inner = (
+          <>
+            <span class="bar-label" title={r.title ?? r.label}>
+              {r.label}
+            </span>
+            <span class="bar-track">
+              <span class="bar-fill" style={`width:${Math.round((r.count / max) * 100)}%`} />
+            </span>
+            <span class="bar-count">{r.count}</span>
+          </>
+        );
+        return r.href ? (
+          <a key={i} class="bar-row bar-row-link" href={r.href}>
+            {inner}
+          </a>
+        ) : (
+          <div key={i} class="bar-row">
+            {inner}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -51,6 +87,7 @@ function Bars({ rows, empty }: { rows: { label: string; count: number }[]; empty
 function FunnelBuilder() {
   const [input, setInput] = useState("");
   const [steps, setSteps] = useState<FunnelStep[]>([]);
+  const [toConvert, setToConvert] = useState<StepTiming | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -66,10 +103,13 @@ function FunnelBuilder() {
     setErr(null);
     setLoading(true);
     try {
-      const res = await fetch(`/v1/query/funnel?steps=${encodeURIComponent(names.join(","))}`);
+      const params = new URLSearchParams({ steps: names.join(",") });
+      applyRange(params, range);
+      const res = await fetch(`/v1/query/funnel?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = (await res.json()) as { steps: FunnelStep[] };
+      const d = (await res.json()) as { steps: FunnelStep[]; to_convert?: StepTiming | null };
       setSteps(d.steps ?? []);
+      setToConvert(d.to_convert ?? null);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -124,16 +164,33 @@ function FunnelBuilder() {
                 <div class="funnel-bar-track">
                   <div class="funnel-bar-fill" style={`width:${pct}%`} />
                 </div>
+                {/* Counts localise a slow step; durations explain it. */}
+                {i > 0 && s.from_prev && (
+                  <div
+                    class="funnel-timing"
+                    title={`${s.from_prev.samples} conversion${s.from_prev.samples === 1 ? "" : "s"} timed; gaps over the cap are counted but not timed`}
+                  >
+                    {fmtDuration(s.from_prev.p50_ms)} median · {fmtDuration(s.from_prev.p90_ms)} p90
+                    <span class="funnel-samples"> · n={s.from_prev.samples}</span>
+                  </div>
+                )}
               </div>
             );
           })}
+          {toConvert && (
+            <p class="funnel-total">
+              End to end: <strong>{fmtDuration(toConvert.p50_ms)}</strong> median ·{" "}
+              {fmtDuration(toConvert.p90_ms)} p90, over {toConvert.samples} completed conversion
+              {toConvert.samples === 1 ? "" : "s"}.
+            </p>
+          )}
         </div>
       )}
     </section>
   );
 }
 
-export function Insights() {
+export function Behaviour({ range }: { range: TimeRange }) {
   const [agg, setAgg] = useState<Aggregates | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -142,7 +199,11 @@ export function Insights() {
     setLoading(true);
     setErr(null);
     try {
-      const res = await fetch("/v1/query/aggregates");
+      const params = new URLSearchParams();
+      applyRange(params, range);
+      // Day buckets follow the viewer's calendar, not UTC — see store.dayExpr.
+      params.set("tz", String(tzOffsetMinutes()));
+      const res = await fetch(`/v1/query/aggregates?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setAgg((await res.json()) as Aggregates);
     } catch (e) {
@@ -154,7 +215,7 @@ export function Insights() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [range.key]);
 
   // DAU / errors_by_day arrive ORDER BY day ASC (oldest→newest), so the last
   // element is the most recent day and the count arrays are already in
@@ -163,19 +224,15 @@ export function Insights() {
   const errorsByDay = agg?.errors_by_day ?? [];
   const dauCounts = dau.map((d) => d.count);
   const errorCounts = errorsByDay.map((d) => d.count);
-  const dauToday = dau.length > 0 ? dau[dau.length - 1].count : 0;
-  const errorsToday = errorsByDay.length > 0 ? errorsByDay[errorsByDay.length - 1].count : 0;
-  const topEventsTotal = (agg?.top_events ?? []).reduce((sum, n) => sum + n.count, 0);
 
   return (
     <div>
-      <h2>Insights</h2>
-
-      <StatStrip>
-        <StatTile label="dau · today" value={dauToday} spark={dauCounts} accent="accent" />
-        <StatTile label="events · total (top)" value={topEventsTotal} accent="event" />
-        <StatTile label="errors · today" value={errorsToday} spark={errorCounts} accent="error" />
-      </StatStrip>
+      <h2>
+        <Icon name="network" size={16} /> Behaviour
+        <span class="muted" style="font-weight:400;font-size:0.8rem">
+          · what people are doing
+        </span>
+      </h2>
 
       <div class="toolbar">
         <button onClick={load}>
@@ -199,7 +256,12 @@ export function Insights() {
               <Sparkline values={dauCounts} width={280} height={40} color="var(--accent)" />
             </div>
             <Bars
-              rows={dau.map((d) => ({ label: d.day, count: d.count }))}
+              rows={dau.map((d) => ({
+                label: d.day,
+                count: d.count,
+                href: `#/explore?${dayParams(d.day)}`,
+                title: `Explore ${d.day}`,
+              }))}
               empty="no activity yet"
             />
           </section>
@@ -212,7 +274,12 @@ export function Insights() {
               <Sparkline values={errorCounts} width={280} height={40} color="var(--c-error)" />
             </div>
             <Bars
-              rows={errorsByDay.map((d) => ({ label: d.day, count: d.count }))}
+              rows={errorsByDay.map((d) => ({
+                label: d.day,
+                count: d.count,
+                href: `#/issues?${dayParams(d.day)}`,
+                title: `Issues on ${d.day}`,
+              }))}
               empty="no errors — nice"
             />
           </section>
@@ -222,7 +289,12 @@ export function Insights() {
               <Icon name="chevron-right" size={14} /> Top events
             </h3>
             <Bars
-              rows={(agg?.top_events ?? []).map((n) => ({ label: n.name, count: n.count }))}
+              rows={(agg?.top_events ?? []).map((n) => ({
+                label: n.name,
+                count: n.count,
+                href: `#/explore?type=event&q=${encodeURIComponent(n.name)}`,
+                title: `Explore ${n.name}`,
+              }))}
               empty="no captured events"
             />
           </section>
@@ -232,14 +304,19 @@ export function Insights() {
               <Icon name="page" size={14} /> Top pages
             </h3>
             <Bars
-              rows={(agg?.top_pages ?? []).map((n) => ({ label: n.name, count: n.count }))}
+              rows={(agg?.top_pages ?? []).map((n) => ({
+                label: n.name,
+                count: n.count,
+                href: `#/screen/${encodeURIComponent(n.name)}`,
+                title: `Open ${n.name}`,
+              }))}
               empty="no pageviews"
             />
           </section>
         </div>
       )}
 
-      <Flows />
+      <Flows range={range} />
 
       <FunnelBuilder />
     </div>

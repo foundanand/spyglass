@@ -1,5 +1,5 @@
 // @spyglass/sdk — public entry. Keep this core tiny (§5: ≤5KB gz).
-// rrweb and autocapture are lazy-imported by their own modules, never from here.
+// rrweb is lazy-imported by its own module, never from here.
 
 export const VERSION = "0.0.0";
 

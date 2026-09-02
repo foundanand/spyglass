@@ -41,8 +41,8 @@ func TestQueryEventsHandler(t *testing.T) {
 	h := query.NewEventsHandler(st)
 
 	tests := []struct {
-		query  string
-		wantN  int
+		query string
+		wantN int
 	}{
 		{"", 3},
 		{"user=alice", 2},

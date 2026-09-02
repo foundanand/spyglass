@@ -14,6 +14,7 @@ type Config struct {
 	Apps      map[string]AppCfg `json:"apps"`
 	Retention RetentionCfg      `json:"retention"`
 	Auth      AuthCfg           `json:"auth"`
+	Webhooks  WebhookCfg        `json:"webhooks"`
 
 	// retentionSet records whether replays_days was actually present in the
 	// file, so an explicit 0 ("keep forever") survives default application.
@@ -22,8 +23,17 @@ type Config struct {
 
 // AppCfg holds per-application settings.
 type AppCfg struct {
-	Key     string   `json:"key"`
-	Origins []string `json:"origins"`
+	// Key is the browser key. It ships to the client and is public by design,
+	// which is why it is paired with an origin allowlist.
+	Key string `json:"key"`
+	// ServerKey authenticates callers that are not browsers — a worker, a cron
+	// job, a CLI. It is never sent to a client, so it is a real secret and it
+	// skips the origin check (a server has no meaningful Origin to present).
+	//
+	// Optional: absent means only browsers can report, which is the default
+	// posture.
+	ServerKey string   `json:"server_key"`
+	Origins   []string `json:"origins"`
 }
 
 // RetentionCfg controls how long data is kept.
@@ -35,6 +45,21 @@ type RetentionCfg struct {
 // AuthCfg holds dashboard authentication settings.
 type AuthCfg struct {
 	DashboardPassword string `json:"dashboard_password"`
+}
+
+// WebhookCfg configures the collector's only outbound calls.
+//
+// Absent means no egress is possible — not disabled, absent: with no URL the
+// notifier is never constructed and no code path exists that could dial out.
+// Point these at an in-enclave receiver and the air-gap guarantee is intact.
+type WebhookCfg struct {
+	// OnBugReport fires when a user files a bug report.
+	OnBugReport string `json:"on_bug_report"`
+	// OnNewError fires the first time an error signature is seen in the window.
+	OnNewError string `json:"on_new_error"`
+	// DashboardURL is the externally reachable base URL of this collector, used
+	// to build the incident deep link in a message. Optional.
+	DashboardURL string `json:"dashboard_url"`
 }
 
 // LoadConfig reads and validates the config file at path.
@@ -107,6 +132,32 @@ func (c *Config) resolveEnvRefs() error {
 	}
 	c.Auth.DashboardPassword = pw
 
+	// Webhook URLs are credentials in practice — a Slack URL is a bearer token —
+	// so they get the same env: treatment, and stay out of version control.
+	for _, ref := range []struct {
+		val   *string
+		field string
+	}{
+		{&c.Webhooks.OnBugReport, "webhooks.on_bug_report"},
+		{&c.Webhooks.OnNewError, "webhooks.on_new_error"},
+		{&c.Webhooks.DashboardURL, "webhooks.dashboard_url"},
+	} {
+		v, err := resolveEnvRef(*ref.val, ref.field)
+		if err != nil {
+			return err
+		}
+		*ref.val = v
+	}
+
+	for name, app := range c.Apps {
+		sk, err := resolveEnvRef(app.ServerKey, "apps."+name+".server_key")
+		if err != nil {
+			return err
+		}
+		app.ServerKey = sk
+		c.Apps[name] = app
+	}
+
 	// App keys too. Without this the config file — "the entire ops story" — is
 	// the one place a credential cannot come from the environment, which forces
 	// operators to either commit a key or keep the file out of version control
@@ -129,6 +180,11 @@ func (c *Config) validate() error {
 	for name, app := range c.Apps {
 		if app.Key == "" {
 			return fmt.Errorf("config: app %q has empty key", name)
+		}
+		// A server key equal to the browser key would silently hand every
+		// browser the ability to skip the origin check.
+		if app.ServerKey != "" && app.ServerKey == app.Key {
+			return fmt.Errorf("config: app %q has server_key equal to key; the server key must be a separate secret", name)
 		}
 	}
 	return nil

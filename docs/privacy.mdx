@@ -49,13 +49,55 @@ Matched bodies are truncated to 2KB. Everything else stays metadata-only.
 `Authorization`, `Cookie`, and `Set-Cookie` are **never** recorded — not in
 metadata, not anywhere. There is no configuration that turns this off.
 
-## Autocapture is off by default
+## Session context is coarse and switchable
 
-Always-on DOM autocapture (recording every click and form interaction) is
-**opt-in** (`autocapture: true`) and off by default. When off, the code for it is
-never even loaded. Explicit `capture()` calls plus automatic pageviews give
-cleaner data without blanket DOM scraping. When on, form fields are recorded by
-**name only** — never their values, unless you've also set `maskInputs: "none"`.
+Each session records a small amount of environment context — viewport and screen
+size, device pixel ratio, the raw user-agent string, language, timezone,
+referrer, and connection type where the browser exposes it. It is attached to
+the **session**, not to every event.
+
+This is the only thing spyglass records that a user did not do deliberately, so
+it is deliberately boring:
+
+- **No fingerprinting surface.** No canvas, no font enumeration, no WebGL, no
+  plugin list. Nothing here is an identifier.
+- **No IP address.** The collector does not log or store one.
+- **Raw UA only.** It is parsed for display in the dashboard, never turned into
+  a device identifier.
+- **`context: false`** records none of it.
+
+It earns its place by making every other number answerable: "task creation takes
+52s" becomes "on mobile it takes 2m10s", and "9 errors this week" becomes "all
+of them Safari".
+
+## Traits are cohorts, not people
+
+`user.traits` exists to group behaviour by role, team or plan. The SDK keeps
+scalars only — strings, numbers, booleans, `null` — and drops objects and arrays
+rather than serialising them, so a whole user record cannot be parked there by
+accident. Keys are capped at 24, and string values truncated at 120 characters.
+
+That enforces the shape, not the judgement. **Put attributes that describe a
+cohort, never anything identifying or sensitive:** role, team, plan, tenure
+bucket — not email, not phone, not a client name.
+
+## There is no autocapture
+
+spyglass does not scrape the DOM for events, and has no option to. Nothing
+records every click and form interaction into the events table.
+
+This is deliberate rather than unfinished. Autocapture exists in other tools to
+solve a problem spyglass solves twice over: replay already captures every
+interaction visually, and explicit `capture()` calls plus automatic pageviews
+record the interactions that carry meaning. Blanket DOM scraping on top of that
+produces a haystack — thousands of `clicked div.sc-a7f2` rows to search for the
+one event you actually wanted — while widening what leaves the page.
+
+If you want an interaction in the events table, name it:
+
+```ts
+spyglass.capture("invoice_exported", { format: "xlsx" });
+```
 
 ## Retention
 

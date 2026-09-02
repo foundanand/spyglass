@@ -6,10 +6,59 @@ import type { eventWithTime } from "rrweb";
 import { getConfig } from "./core.js";
 import { currentSessionId } from "./session.js";
 
-let seq = 0;
 let pendingUploads = 0;
 let stopFn: (() => void) | null = null;
 const MAX_PENDING = 3;
+
+// ---------------------------------------------------------------------------
+// Chunk sequence counter
+// ---------------------------------------------------------------------------
+//
+// The session id lives in sessionStorage and survives a full page load; a
+// module-level counter does not. Keeping the counter in module state meant that
+// after a reload the SDK restarted at seq=1 and the collector overwrote the
+// chunks from before the reload — silently, because the manifest updated the
+// existing entry in place rather than appending.
+//
+// So the counter shares the lifetime of the id it is namespaced under, the same
+// way sdk/src/flow.ts keeps open flows. Keyed by session id, so a new session
+// starts from zero instead of inheriting a stale count.
+
+const SEQ_KEY_PREFIX = "sg_replay_seq:";
+
+// Fallback when sessionStorage is unavailable (SSR, privacy mode, iframe with
+// storage blocked). Chunks then collide across a reload exactly as before —
+// no worse than the old behaviour, and the collector now refuses to truncate.
+const memorySeq: Record<string, number> = {};
+
+/**
+ * Reserve the next chunk sequence number for a session.
+ *
+ * Synchronous by design: the read-modify-write must complete before any await,
+ * or two concurrent uploads can reserve the same number.
+ */
+export function nextSeq(sessionId: string): number {
+  const key = SEQ_KEY_PREFIX + sessionId;
+  try {
+    const next = Number(sessionStorage.getItem(key) ?? "0") + 1;
+    sessionStorage.setItem(key, String(next));
+    return next;
+  } catch {
+    const next = (memorySeq[sessionId] ?? 0) + 1;
+    memorySeq[sessionId] = next;
+    return next;
+  }
+}
+
+/** Clear the persisted counter — for testing only. */
+export function _resetSeq(sessionId: string): void {
+  try {
+    sessionStorage.removeItem(SEQ_KEY_PREFIX + sessionId);
+  } catch {
+    // ignore
+  }
+  delete memorySeq[sessionId];
+}
 
 export async function startReplay(): Promise<void> {
   const cfg = getConfig();
@@ -79,7 +128,7 @@ async function upload(events: eventWithTime[]): Promise<void> {
   }
 
   const sessionId = currentSessionId();
-  const chunkSeq = ++seq;
+  const chunkSeq = nextSeq(sessionId);
   const firstTs = events[0]?.timestamp ?? 0;
 
   let body: Uint8Array;

@@ -365,3 +365,326 @@ func TestFlowsAllAbandoned(t *testing.T) {
 		t.Errorf("durations should be absent for an all-abandoned flow: %+v", s)
 	}
 }
+
+// Session context is the axis that turns "task.create takes 52s" into "on
+// mobile it takes 2m10s". Flows from sessions with no context row must still be
+// counted, bucketed as unknown rather than dropped.
+func TestFlowsGroupBySessionMeta(t *testing.T) {
+	st := openTestStore(t)
+
+	if err := st.UpsertSession("s-mobile", "demo", "u1", 1000, 1000,
+		map[string]interface{}{"viewport_bucket": "mobile", "ua": "Safari"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpsertSession("s-desktop", "demo", "u2", 1000, 1000,
+		map[string]interface{}{"viewport_bucket": "desktop", "ua": "Chrome"}); err != nil {
+		t.Fatal(err)
+	}
+	// Deliberately no meta: an older SDK, or context:false.
+	if err := st.UpsertSession("s-nometa", "demo", "u3", 1000, 1000, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(sid string, ms int) store.Event {
+		return store.Event{
+			Ts: 1000, App: "demo", UserID: "u", SessionID: sid, Type: "flow", Name: "task.create",
+			Props: map[string]interface{}{"duration_ms": ms, "outcome": "completed"},
+		}
+	}
+	if err := st.InsertEvents([]store.Event{
+		mk("s-mobile", 130_000), mk("s-mobile", 130_000),
+		mk("s-desktop", 52_000), mk("s-desktop", 52_000),
+		mk("s-nometa", 60_000),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := st.Flows(store.FlowQuery{
+		Name:    "task.create",
+		GroupBy: store.FlowGroupBy{Kind: "session", PropKey: "viewport_bucket"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := map[string]int64{}
+	total := 0
+	for _, r := range rows {
+		got[r.Group] = r.P50
+		total += r.Completions
+	}
+	if total != 5 {
+		t.Errorf("counted %d completed runs, want 5 — a session without meta must not be dropped", total)
+	}
+	if got["mobile"] != 130_000 {
+		t.Errorf("mobile p50 = %d, want 130000", got["mobile"])
+	}
+	if got["desktop"] != 52_000 {
+		t.Errorf("desktop p50 = %d, want 52000", got["desktop"])
+	}
+	if _, ok := got[""]; !ok {
+		t.Errorf("session without meta should bucket under \"\", got groups %v", got)
+	}
+
+	// A meta key nobody set groups everything as unknown rather than erroring.
+	none, err := st.Flows(store.FlowQuery{
+		GroupBy: store.FlowGroupBy{Kind: "session", PropKey: "no_such_key"},
+	})
+	if err != nil {
+		t.Fatalf("unknown meta key should not error: %v", err)
+	}
+	if len(none) != 1 || none[0].Group != "" {
+		t.Errorf("unknown meta key: got %+v, want one unknown bucket", none)
+	}
+
+	if _, err := st.Flows(store.FlowQuery{GroupBy: store.FlowGroupBy{Kind: "session"}}); err == nil {
+		t.Error("group by session with no key should error")
+	}
+}
+
+func TestFlowsGroupByTraitAndFilter(t *testing.T) {
+	st := openTestStore(t)
+
+	seed := func(sid, user, role string, durations ...int) {
+		t.Helper()
+		if err := st.UpsertSession(sid, "demo", user, 1000, 1000, map[string]interface{}{
+			"viewport_bucket": "desktop",
+			"traits":          map[string]interface{}{"role": role, "admin": role == "Partner"},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		var evs []store.Event
+		for _, ms := range durations {
+			evs = append(evs, store.Event{
+				Ts: 1000, App: "demo", UserID: user, SessionID: sid, Type: "flow", Name: "task.file",
+				Props: map[string]interface{}{"duration_ms": ms, "outcome": "completed"},
+			})
+		}
+		if err := st.InsertEvents(evs); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	seed("s1", "alice", "Partner", 20_000, 22_000, 21_000)
+	seed("s2", "bob", "Employee", 60_000, 65_000, 62_000)
+	seed("s3", "carol", "Employee", 58_000)
+
+	rows, err := st.Flows(store.FlowQuery{
+		Name:    "task.file",
+		GroupBy: store.FlowGroupBy{Kind: "trait", PropKey: "role"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byRole := map[string]store.FlowStat{}
+	for _, r := range rows {
+		byRole[r.Group] = r
+	}
+	if byRole["Partner"].Completions != 3 || byRole["Employee"].Completions != 4 {
+		t.Fatalf("completions by role = %+v", byRole)
+	}
+	// The finding this exists for: a statement about the software, not a person.
+	if byRole["Partner"].P50 >= byRole["Employee"].P50 {
+		t.Errorf("Partner p50 %d should be below Employee p50 %d",
+			byRole["Partner"].P50, byRole["Employee"].P50)
+	}
+
+	// Filtering narrows to one cohort.
+	filtered, err := st.Flows(store.FlowQuery{
+		Name:   "task.file",
+		Traits: map[string]string{"role": "Employee"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 1 || filtered[0].Completions != 4 {
+		t.Errorf("trait filter = %+v, want one row of 4 completions", filtered)
+	}
+
+	// Two traits must both match.
+	both, err := st.Flows(store.FlowQuery{
+		Name:   "task.file",
+		Traits: map[string]string{"role": "Partner", "admin": "1"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(both) != 1 || both[0].Completions != 3 {
+		t.Errorf("two-trait filter = %+v, want Partner's 3 completions", both)
+	}
+
+	none, err := st.Flows(store.FlowQuery{
+		Name:   "task.file",
+		Traits: map[string]string{"role": "Nobody"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(none) != 0 {
+		t.Errorf("filter matching nothing = %+v, want no rows", none)
+	}
+
+	if _, err := st.Flows(store.FlowQuery{GroupBy: store.FlowGroupBy{Kind: "trait"}}); err == nil {
+		t.Error("group by trait with no key should error")
+	}
+}
+
+// A trait key is bound as a JSON path and must never reach the SQL text.
+func TestFlowsTraitKeyCannotInjectSQL(t *testing.T) {
+	st := openTestStore(t)
+
+	if err := st.UpsertSession("s1", "demo", "u1", 1000, 1000, map[string]interface{}{
+		"traits": map[string]interface{}{"role": "Partner"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.InsertEvents([]store.Event{{
+		Ts: 1000, App: "demo", UserID: "u1", SessionID: "s1", Type: "flow", Name: "f",
+		Props: map[string]interface{}{"duration_ms": 100, "outcome": "completed"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	hostile := []string{
+		`role') UNION SELECT 1,2,3,4 --`,
+		`role'; DROP TABLE events; --`,
+		`*`,
+		`role" OR "1"="1`,
+	}
+	for _, key := range hostile {
+		if _, err := st.Flows(store.FlowQuery{
+			GroupBy: store.FlowGroupBy{Kind: "trait", PropKey: key},
+		}); err != nil {
+			t.Errorf("hostile trait key %q errored (%v); it should be inert, not fatal", key, err)
+		}
+		if _, err := st.Flows(store.FlowQuery{Traits: map[string]string{key: "x"}}); err != nil {
+			t.Errorf("hostile trait filter key %q errored: %v", key, err)
+		}
+	}
+
+	// The table is still there and still has its row.
+	after, err := st.QueryEvents(store.EventQuery{Limit: 10})
+	if err != nil {
+		t.Fatalf("events table damaged: %v", err)
+	}
+	if len(after) != 1 {
+		t.Errorf("expected the events table intact with 1 row, got %d", len(after))
+	}
+}
+
+// The drill-down that makes "every number has a watchable session behind it"
+// true: from a p90, reach the sessions that produced it.
+func TestFlowSessionsSlowestFirst(t *testing.T) {
+	st := openTestStore(t)
+
+	mk := func(sid, user string, ms int, outcome string) store.Event {
+		return store.Event{
+			Ts: 1000, App: "demo", UserID: user, SessionID: sid, Type: "flow", Name: "task.create",
+			Props: map[string]interface{}{"duration_ms": ms, "outcome": outcome},
+		}
+	}
+	if err := st.InsertEvents([]store.Event{
+		mk("s-fast", "alice", 1_000, "completed"),
+		mk("s-mid", "bob", 50_000, "completed"),
+		mk("s-slow", "carol", 200_000, "completed"),
+		mk("s-gaveup", "dave", 90_000, "abandoned"),
+		// Sessionless (server-side) runs have no recording to reach.
+		{Ts: 1000, App: "demo", UserID: "cron", SessionID: "", Type: "flow", Name: "task.create",
+			Props: map[string]interface{}{"duration_ms": 999_999, "outcome": "completed"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := st.FlowSessions(store.FlowSessionQuery{Name: "task.create"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 4 {
+		t.Fatalf("got %d runs, want 4 (the sessionless one is excluded): %+v", len(got), got)
+	}
+	if got[0].SessionID != "s-slow" || got[0].DurationMs != 200_000 {
+		t.Errorf("first row = %+v, want the slowest", got[0])
+	}
+	for i := 1; i < len(got); i++ {
+		if got[i-1].DurationMs < got[i].DurationMs {
+			t.Errorf("rows are not slowest-first: %+v", got)
+			break
+		}
+	}
+
+	// "Sessions above p90" is expressed as a minimum duration.
+	slow, err := st.FlowSessions(store.FlowSessionQuery{Name: "task.create", MinDurationMs: 60_000})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(slow) != 2 {
+		t.Errorf("min duration filter returned %d rows, want 2", len(slow))
+	}
+
+	// "Sessions where it was abandoned".
+	gaveUp, err := st.FlowSessions(store.FlowSessionQuery{Name: "task.create", Outcome: "abandoned"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(gaveUp) != 1 || gaveUp[0].SessionID != "s-gaveup" {
+		t.Errorf("abandoned filter = %+v", gaveUp)
+	}
+
+	if _, err := st.FlowSessions(store.FlowSessionQuery{}); err == nil {
+		t.Error("a nameless flow query should error rather than scan everything")
+	}
+}
+
+// A p50 and p90 hide a bimodal distribution; a histogram shows it.
+func TestFlowHistogramBuckets(t *testing.T) {
+	st := openTestStore(t)
+
+	var evs []store.Event
+	add := func(ms, n int) {
+		for i := 0; i < n; i++ {
+			evs = append(evs, store.Event{
+				Ts: 1000, App: "demo", UserID: "u", SessionID: "s", Type: "flow", Name: "f",
+				Props: map[string]interface{}{"duration_ms": ms, "outcome": "completed"},
+			})
+		}
+	}
+	add(150, 5)       // 100–250ms
+	add(1_500, 3)     // 1s–2s
+	add(75_000, 2)    // 60s–120s
+	add(5_000_000, 1) // past the last edge → open-ended bucket
+	// An abandoned run is not a measurement of how long the action takes.
+	evs = append(evs, store.Event{
+		Ts: 1000, App: "demo", UserID: "u", SessionID: "s", Type: "flow", Name: "f",
+		Props: map[string]interface{}{"duration_ms": 150, "outcome": "abandoned"},
+	})
+	if err := st.InsertEvents(evs); err != nil {
+		t.Fatal(err)
+	}
+
+	buckets, err := st.FlowHistogram("f", "", 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	total := 0
+	byLabel := map[string]int{}
+	for _, b := range buckets {
+		total += b.Count
+		if b.Count > 0 {
+			byLabel[b.Label] = b.Count
+		}
+	}
+	if total != 11 {
+		t.Errorf("bucketed %d runs, want 11 completed (the abandoned one excluded)", total)
+	}
+	if len(byLabel) != 4 {
+		t.Errorf("expected 4 populated buckets, got %v", byLabel)
+	}
+	if buckets[len(buckets)-1].Count != 1 {
+		t.Errorf("the final bucket must be open-ended and hold the 5,000,000ms run: %+v", buckets[len(buckets)-1])
+	}
+	if buckets[len(buckets)-1].MaxMs != -1 {
+		t.Errorf("final bucket MaxMs = %d, want -1 (open-ended)", buckets[len(buckets)-1].MaxMs)
+	}
+}

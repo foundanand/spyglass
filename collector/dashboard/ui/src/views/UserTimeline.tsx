@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { Icon } from "../components/Icon.js";
 import { Avatar } from "../components/Avatar.js";
 import { RelTime } from "../components/RelTime.js";
+import { applyRange, type TimeRange } from "../range.js";
 import { SkeletonRows } from "../components/Skeleton.js";
 
 interface UserSummary {
@@ -87,7 +88,7 @@ function groupBySessions(events: Event[]): Map<string, Event[]> {
   return m;
 }
 
-export function UserTimeline() {
+export function UserTimeline({ range }: { range: TimeRange }) {
   const [users, setUsers] = useState<UserSummary[]>([]);
   const [selected, setSelected] = useState<UserSummary | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
@@ -95,11 +96,13 @@ export function UserTimeline() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/v1/query/users?limit=100")
+    const params = new URLSearchParams({ limit: "100" });
+    applyRange(params, range);
+    fetch(`/v1/query/users?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => setUsers(d.users ?? []))
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [range.key]);
 
   async function selectUser(u: UserSummary) {
     setSelected(u);
@@ -107,6 +110,7 @@ export function UserTimeline() {
     setError(null);
     try {
       const params = new URLSearchParams({ user: u.user_id, limit: "500" });
+      applyRange(params, range);
       const res = await fetch(`/v1/query/events?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = (await res.json()) as { events: Event[] };

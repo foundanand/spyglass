@@ -90,9 +90,34 @@ func (h *ReplayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Exclusive create: a chunk file is written once and never truncated.
+	//
+	// A client that restarts its sequence counter (the pre-fix SDK did this on
+	// every full page load) would otherwise silently overwrite good chunks. One
+	// dropped chunk from a misbehaving client is recoverable; a destroyed one is
+	// not, so a collision costs the new chunk and says so loudly.
 	chunkPath := filepath.Join(dir, fmt.Sprintf("%06d.json.gz", seq))
-	if err := os.WriteFile(chunkPath, data, 0o644); err != nil {
+	f, err := os.OpenFile(chunkPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		if os.IsExist(err) {
+			log.Printf("replay ingest: duplicate seq %d for session %s — chunk rejected, existing file kept", seq, sessionID)
+			http.Error(w, "chunk already exists", http.StatusConflict)
+			return
+		}
+		log.Printf("replay ingest: create chunk %s: %v", chunkPath, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		os.Remove(chunkPath) // don't leave a truncated chunk behind
 		log.Printf("replay ingest: write chunk %s: %v", chunkPath, err)
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := f.Close(); err != nil {
+		os.Remove(chunkPath)
+		log.Printf("replay ingest: close chunk %s: %v", chunkPath, err)
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -105,6 +130,8 @@ func (h *ReplayHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.mu.Unlock()
 	}
 
+	// Counts accepted writes, not POSTs: a rejected duplicate returns above, so
+	// chunk_count can never again disagree with the files on disk.
 	if err := h.st.BumpChunkCount(sessionID); err != nil {
 		log.Printf("replay ingest: bump chunk_count %s: %v", sessionID, err)
 	}

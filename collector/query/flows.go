@@ -14,7 +14,8 @@ import (
 //	?app=      restrict to one app
 //	?name=     restrict to one flow (omit for every flow, one row each)
 //	?from=&to= unix-ms window
-//	?group=    "" | user | day | prop:<key>
+//	?group=    "" | user | day | prop:<key> | session:<key> | trait:<key>
+//	?trait=    key:value, repeatable — narrows to sessions matching every one
 //	?limit=    max rows (default 50)
 //
 // The grouping parameter is what makes this a dashboard primitive rather than
@@ -48,6 +49,22 @@ func parseGroup(raw string) (store.FlowGroupBy, bool) {
 			return store.FlowGroupBy{}, false
 		}
 		return store.FlowGroupBy{Kind: "prop", PropKey: key}, true
+	case strings.HasPrefix(raw, "trait:"):
+		// User cohort attributes — role, team, plan. Same storage as session
+		// context, namespaced under "traits".
+		key := strings.TrimPrefix(raw, "trait:")
+		if key == "" {
+			return store.FlowGroupBy{}, false
+		}
+		return store.FlowGroupBy{Kind: "trait", PropKey: key}, true
+	case strings.HasPrefix(raw, "session:"):
+		// Session context — viewport_bucket, ua, tz, connection, language.
+		// This is the axis that answers "is it slower on mobile".
+		key := strings.TrimPrefix(raw, "session:")
+		if key == "" {
+			return store.FlowGroupBy{}, false
+		}
+		return store.FlowGroupBy{Kind: "session", PropKey: key}, true
 	default:
 		return store.FlowGroupBy{}, false
 	}
@@ -63,13 +80,28 @@ func (h *FlowsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	group, ok := parseGroup(q.Get("group"))
 	if !ok {
-		http.Error(w, `group must be "", "user", "day", or "prop:<key>"`, http.StatusBadRequest)
+		http.Error(w, `group must be "", "user", "day", "prop:<key>", "session:<key>", or "trait:<key>"`, http.StatusBadRequest)
 		return
+	}
+
+	// ?trait=role:Partner&trait=admin:true — every one must match.
+	var traits map[string]string
+	for _, raw := range q["trait"] {
+		k, v, found := strings.Cut(raw, ":")
+		if !found || k == "" {
+			http.Error(w, `trait must be "key:value"`, http.StatusBadRequest)
+			return
+		}
+		if traits == nil {
+			traits = map[string]string{}
+		}
+		traits[k] = v
 	}
 
 	fq := store.FlowQuery{
 		App:     q.Get("app"),
 		Name:    q.Get("name"),
+		Traits:  traits,
 		GroupBy: group,
 		Limit:   50,
 	}

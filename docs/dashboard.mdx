@@ -1,6 +1,6 @@
 ---
 title: Dashboard
-description: A tour of every dashboard view — live feed, user timeline, errors, replay, insights, and the incident view that turns any error or bug report into a cued replay slice.
+description: A tour of the dashboard — Home, Behaviour, Sessions, Issues and Explore, the entity pages behind them, and the incident view that turns any error or bug report into a cued replay slice.
 ---
 
 The dashboard is a single embedded page served at the collector root
@@ -9,50 +9,122 @@ no Node on the server — it ships inside the binary. If a
 [dashboard password](/docs/configuration#auth) is set, the browser prompts for it
 once.
 
-Six views, reachable from the top nav.
+## How it is organised
+
+Five sections, named after the question each answers rather than after how the
+data is stored:
+
+| Section       | Answers                |
+| ------------- | ---------------------- |
+| **Home**      | Is everything OK?      |
+| **Behaviour** | What are people doing? |
+| **Sessions**  | Who did it?            |
+| **Issues**    | What broke?            |
+| **Explore**   | The raw event stream   |
+
+A **time range picker** sits in the nav and applies to every view — 24h, 7d, 30d,
+90d, All, defaulting to **30 days**. It lives in the URL (`#/behaviour?range=7d`),
+so any view you are looking at can be pasted to a colleague.
+
+### One rule worth knowing
+
+> Every aggregate leads to the rows behind it. Every row leads to a session.
+> Every session leads to a replay.
+
+That is at most three clicks from any number to watching a person hit the
+problem. It works because spyglass records **every** session continuously with
+identified users — so unlike a sampling tool, every number really does have a
+watchable recording behind it.
 
 ---
 
-## Live feed
+## Home
 
-The raw event stream, newest first, filterable by user, type, and app. The first
-place to look to confirm telemetry is flowing — your events appear within ~5
-seconds of happening. Click any error or bug report to jump to its
-[incident](#incident-view).
+The landing page, and the only one that is not a table. Each tile and list is a
+_finding_, and each links to the thing that explains it:
 
-## User timeline
+- **Active users, errors, bug reports** — each with the change against the
+  previous equal-length period.
+- **Flows that got slower** — p90 this window against p90 last window. Nothing
+  else in the tool surfaces a regression, and it is the most useful thing a home
+  page can say.
+- **New error types** — signatures that were not happening before. Far more
+  actionable than a total.
+- **Recent bug reports** — a human took the trouble to file these.
+- **Most abandoned flows**, and a short strip of the latest _deliberate_ actions.
 
-Pick a user from the sidebar to see their sessions, each expanded into a
-chronological breadcrumb trail: pageviews, captured events, network requests, and
-errors, color-coded by type. This is the "what was this person doing" view —
-follow a user's path leading up to a problem.
+When nothing needs attention, it says so rather than making you infer it.
 
-## Errors
+---
 
-Every `error` and `bug_report`, with expandable stack traces and a user filter.
-Errors are de-duplicated by the SDK within a 5-second window, so a render loop
-shows up once, not a thousand times. Click any row to open its
-[incident](#incident-view).
+## Behaviour
 
-## Replay
+The analyses: daily active users, errors by day, top events, top pages, the
+**flow duration table**, and the **funnel builder**.
 
-rrweb-player with seek. Pick a session and watch it back exactly as the user saw
-it, with a synced **console pane** beside the video — the console logs are
-recorded inside the replay stream, so they line up with what's on screen.
+Every row here is a link. A day in a chart opens that day; a top page opens its
+screen page; a top event opens Explore filtered to it; a flow name opens its
+flow page.
 
-## Insights
+### Flow page
 
-Simple aggregates and a funnel builder — SQL `GROUP BY`, nothing heavier.
+Reachable by clicking any flow name. It answers the four questions a duration
+immediately raises:
 
-- **Daily active users** — distinct users per day.
-- **Errors by day** — error volume over time.
-- **Top events** — your most frequent `capture()` calls.
-- **Top pages** — most-viewed paths.
-- **Funnel** — enter two or more event names (e.g. `view, cart, checkout`) and
-  see how many users reached each step in order, with step-to-step conversion.
+- **Median, p90, abandon rate, total time spent**, with the change against the
+  previous period.
+- **A distribution histogram.** A median and a p90 hide a split — "half finish
+  in 2s and half take two minutes" looks the same as a steady spread in
+  percentiles.
+- **A breakdown** by person, day, device size or role.
+- **The slowest sessions**, listed, each one click from its recording. This is
+  the point of the page.
 
-These map to the [`/v1/query/aggregates` and `/v1/query/funnel`](/docs/api)
-endpoints if you'd rather query them directly.
+### Screen page
+
+Reachable from top pages. Views, distinct visitors, **what broke on this
+screen** — previously unanswerable without reading URLs by hand — and the recent
+sessions that visited.
+
+---
+
+## Sessions
+
+The user list, and each user's sessions with chronological breadcrumbs.
+
+### User page
+
+Reachable from any user id anywhere in the product. Their sessions, their errors
+and reports, and **their flow timings against the overall median**.
+
+That last table is framed deliberately: a gap is a question about the software —
+whether a flow assumes knowledge or a screen size this person does not have —
+not a judgement about the person. "Employees are slower at this than Partners"
+is a product finding; "PARV0004 is slow" is a performance review, and this tool
+should not be used to write one.
+
+---
+
+## Issues
+
+Errors and bug reports, filterable by type and user, newest first. Every row
+opens the incident view. Pages backwards through history, and exports to CSV
+with the filters you are looking at.
+
+---
+
+## Explore
+
+The raw event stream — the escape hatch, not the front door.
+
+It defaults to **activity**: everything except network requests. On real data
+network events are around 89% of a session (one measured 25-minute session
+logged 254 of them against 17 pageviews, 9 errors and 4 captures), which buried
+everything worth reading. Network is one chip away, every chip carries a count,
+and the feed states plainly what it is hiding.
+
+Paging backwards pauses the live poll so the ground does not move while you
+read, and says so.
 
 ---
 
@@ -76,5 +148,10 @@ session of every identified user continuously, the incident is just a **query**
 over data already on disk. You open it after the fact; there was no ring buffer
 to have been running, no repro to reproduce.
 
-Reach it by clicking any row in **Errors** or **Live feed**, or by hitting
+Reach it by clicking any row in **Issues** or **Explore**, from a new-error or
+bug-report tile on **Home**, or by hitting
 [`GET /v1/incidents/:event_id`](/docs/api) directly.
+
+Clicking a breadcrumb, or a row in the network waterfall, seeks the player to
+that moment — the difference between reading an incident and watching it. Those
+rows are real controls, so a keyboard reaches them too.

@@ -30,9 +30,14 @@ spyglass.init({
   endpoint: "https://telemetry.internal.acme.dev",
   app: "inventory",
   key: "sg_live_…",
-  user: { id: "anand", name: "Anand", email: "anand@acme.dev" },
+  user: {
+    id: "anand",
+    name: "Anand",
+    email: "anand@acme.dev",
+    traits: { role: "Partner", team: "audit" },
+  },
   replay: true,
-  autocapture: false,
+  context: true,
   network: true,
   maskInputs: "password",
   reportWidget: true,
@@ -41,19 +46,19 @@ spyglass.init({
 
 ### Config options
 
-| Option          | Type                            | Default            | Notes                                                                                  |
-| --------------- | ------------------------------- | ------------------ | -------------------------------------------------------------------------------------- |
-| `endpoint`      | `string`                        | —                  | **Required.** Collector base URL.                                                      |
-| `app`           | `string`                        | —                  | **Required.** App slug; must match a key in the collector config.                      |
-| `key`           | `string`                        | —                  | **Required.** App key for ingest auth; must match `apps.<slug>.key`.                   |
-| `user`          | `{ id, name?, email? }`         | —                  | **Required** (`user.id`). All sessions are identified.                                 |
-| `replay`        | `boolean`                       | `true`             | rrweb session replay + console capture.                                                |
-| `autocapture`   | `boolean`                       | `false`            | Record all clicks + form changes. Lazy-loaded; zero bytes when off.                    |
-| `network`       | `boolean \| { bodies }`         | `true`             | Capture fetch/XHR metadata. See [Network capture](#network-capture).                   |
-| `maskInputs`    | `"all" \| "password" \| "none"` | `"password"`       | Input masking in replays.                                                              |
-| `reportWidget`  | `boolean`                       | `true`             | Floating bug-report button.                                                            |
-| `flowTimeoutMs` | `number`                        | `1800000` (30 min) | A flow open longer than this is forgotten, not slow — see [Flow timing](#flow-timing). |
-| `minAbandonMs`  | `number`                        | `100`              | Abandonments faster than this are remounts, not decisions. `0` records every one.      |
+| Option          | Type                             | Default            | Notes                                                                                  |
+| --------------- | -------------------------------- | ------------------ | -------------------------------------------------------------------------------------- |
+| `endpoint`      | `string`                         | —                  | **Required.** Collector base URL.                                                      |
+| `app`           | `string`                         | —                  | **Required.** App slug; must match a key in the collector config.                      |
+| `key`           | `string`                         | —                  | **Required.** App key for ingest auth; must match `apps.<slug>.key`.                   |
+| `user`          | `{ id, name?, email?, traits? }` | —                  | **Required** (`user.id`). All sessions are identified. See [Traits](#user-traits).     |
+| `replay`        | `boolean`                        | `true`             | rrweb session replay + console capture.                                                |
+| `context`       | `boolean`                        | `true`             | Coarse session context (viewport, screen, UA, language, timezone, referrer).           |
+| `network`       | `boolean \| { bodies }`          | `true`             | Capture fetch/XHR metadata. See [Network capture](#network-capture).                   |
+| `maskInputs`    | `"all" \| "password" \| "none"`  | `"password"`       | Input masking in replays.                                                              |
+| `reportWidget`  | `boolean`                        | `true`             | Floating bug-report button.                                                            |
+| `flowTimeoutMs` | `number`                         | `1800000` (30 min) | A flow open longer than this is forgotten, not slow — see [Flow timing](#flow-timing). |
+| `minAbandonMs`  | `number`                         | `100`              | Abandonments faster than this are remounts, not decisions. `0` records every one.      |
 
 ---
 
@@ -257,3 +262,45 @@ You don't manage any of this — it's documented so you know the guarantees.
   is flushed with `navigator.sendBeacon`, which survives the page going away.
 - **Sessions.** A random session ID lives in `sessionStorage`; a new one is
   minted after 30 minutes of inactivity.
+
+---
+
+## User traits
+
+`user.traits` carries queryable **cohort** attributes, so a question can be
+asked about a kind of user rather than one person:
+
+```ts
+spyglass.init({
+  user: { id: "PARV0004", traits: { role: "Partner", team: "audit", admin: false } },
+});
+
+spyglass.setUser({ id: "PARV0004", traits: { role: "Manager" } }); // traits update too
+```
+
+Query them with `group=trait:<key>` or narrow with `trait=<key>:<value>` on
+[`/v1/query/flows`](/docs/api#get-v1queryflows):
+
+```
+/v1/query/flows?name=task.file&group=trait:role
+/v1/query/flows?name=task.file&trait=role:Employee
+```
+
+This is the difference between "PARV0004 is slow at this" — an awkward thing to
+put in front of a manager — and "Employees are slower at this than Partners, so
+the form assumes knowledge they don't have", which is a finding about the
+software. `group=user` gives one row per person: readable for 40 people, noise
+for 200.
+
+**Traits are recorded per session**, alongside the session context, so they are
+historically honest: a task filed while someone was an Employee stays attributed
+that way, and promoting them does not rewrite the past.
+
+**Scalars only.** Strings, numbers, booleans and `null` are kept; objects,
+arrays and functions are dropped rather than serialised. At most 24 traits, keys
+up to 40 characters, string values truncated at 120.
+
+<Callout type="warn">
+  Traits describe a **cohort**, never a person. Role, team, plan, tenure bucket — not email, not
+  phone, not a client name. The SDK enforces the shape, not the judgement.
+</Callout>

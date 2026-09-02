@@ -38,13 +38,72 @@ JSON body**, not a header.
       "url": "/invoices/new",
       "props": { "amount": 1200 }
     }
-  ]
+  ],
+  "meta": {
+    "viewport_w": 1440,
+    "viewport_bucket": "laptop",
+    "ua": "Mozilla/5.0 …",
+    "tz": "Asia/Kolkata"
+  }
 }
 ```
 
-`type` is one of `event`, `pageview`, `error`, `network`, `bug_report`. Returns
+`meta` is optional coarse **session** context, sent on the first batch of a
+session and stored on the session row (not repeated per event). An SDK with
+`context: false`, or an older SDK, omits it.
+
+`type` is one of `event`, `pageview`, `error`, `network`, `bug_report`, `flow`. Returns
 `204 No Content` on success, `401` on a bad app/key, `413` if the body is too
 large. CORS preflight (`OPTIONS`) is handled against each app's `origins`.
+
+#### Reporting from a server
+
+`POST /v1/events` also accepts calls from a worker, cron job or CLI, using a
+**separate** `server_key` configured per app:
+
+```json
+"apps": { "inventory": { "key": "sg_live_…", "server_key": "env:SG_SERVER_KEY" } }
+```
+
+```bash
+curl -sS -X POST https://spyglass.internal/v1/events \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "app": "inventory",
+    "key": "'"$SG_SERVER_KEY"'",
+    "events": [{
+      "ts": 1718200000000,
+      "app": "inventory",
+      "user_id": "anand",
+      "session_id": "s_abc",
+      "type": "event",
+      "name": "xlsx.serialize",
+      "props": { "duration_ms": 31000 }
+    }]
+  }'
+```
+
+There is deliberately **no server SDK**. The wire format is JSON over HTTP and it
+is documented here; a Node package would be one more thing to version, build,
+publish and carry across an air gap.
+
+Two differences from a browser call:
+
+- **The origin check is skipped**, because a server has no meaningful `Origin`.
+  This is why the key must be separate: the browser `key` ships to the client and
+  is public by design, so letting it skip the check would make the allowlist
+  decorative. The collector refuses to start if `server_key` equals `key`.
+- **`session_id` may be empty.** A nightly job has no sitting to belong to; an
+  empty string is more honest than a synthetic id, and no session row is created.
+
+**Pass the browser's `session_id` when you have it.** That is the version of this
+worth using: the server event lands on that session's timeline, so an incident
+can show both halves of a slow request — "export takes 40s" becomes "31s of it
+was xlsx serialisation". Without it you have a parallel firehose, which is what
+logs are already for.
+
+Omit `server_key` and this path does not exist: browsers only, which is the
+default.
 
 ### `POST /v1/replay?session=&seq=&ts=&app=`
 
@@ -62,13 +121,15 @@ All query endpoints return JSON and are gated by the dashboard password when set
 
 Filtered event stream, newest first.
 
-| Param        | Meaning                                |
-| ------------ | -------------------------------------- |
-| `user`       | Filter by user ID.                     |
-| `type`       | Filter by event type.                  |
-| `app`        | Filter by app slug.                    |
-| `from`, `to` | Unix-ms time bounds.                   |
-| `limit`      | Max rows (default 100, capped at 500). |
+| Param        | Meaning                                        |
+| ------------ | ---------------------------------------------- |
+| `user`       | Filter by user ID.                             |
+| `type`       | Filter by event type.                          |
+| `exclude`    | Comma-separated types to omit, e.g. `network`. |
+| `app`        | Filter by app slug.                            |
+| `session`    | Filter by session id.                          |
+| `from`, `to` | Unix-ms time bounds.                           |
+| `limit`      | Max rows (default 100, capped at 500).         |
 
 ```json title="response"
 { "events": [ { "id": 1, "ts": 1718…, "type": "error", "name": "boom", "…": "…" } ] }
@@ -76,7 +137,8 @@ Filtered event stream, newest first.
 
 ### `GET /v1/query/users`
 
-Active users with last-seen and session counts.
+Active users with last-seen and session counts. Optional `from`/`to` bound the
+window by session activity, so "who was active this week" is answerable.
 
 ```json
 { "users": [ { "user_id": "alice", "app": "inventory", "last_seen": 1718…, "session_count": 3 } ] }
@@ -84,24 +146,61 @@ Active users with last-seen and session counts.
 
 ### `GET /v1/query/sessions`
 
-Session list, newest first. `?limit=` (default 100, max 500).
+Session list, newest first. `?limit=` (default 100, max 500), optional
+`from`/`to`. Each row carries `meta` when the SDK sent session context.
+
+### `GET /v1/query/counts`
+
+Event counts by type in a window. Optional `app`, `user`, `from`, `to`.
+
+```json
+{ "counts": { "pageview": 145, "network": 59, "error": 43, "event": 80 } }
+```
+
+The dashboard's live feed uses it to label its type chips: network events are
+hidden by default because they dominate a real session, and the count is what
+stops someone concluding the data was never captured.
 
 ### `GET /v1/query/funnel?steps=a,b,c`
 
 Sequential funnel over event **names**. Each user's events are walked in time
 order; the count for step _i_ is how many users reached at least that step in
 order. Needs **two or more** steps (`400` otherwise). Optional `app`, `from`,
-`to`.
+`to`, `max_step_ms`.
+
+Each step after the first also reports how long users took to get there.
 
 ```json title="response for steps=view,cart,checkout"
 {
   "steps": [
     { "name": "view", "count": 30 },
-    { "name": "cart", "count": 12 },
-    { "name": "checkout", "count": 5 }
-  ]
+    {
+      "name": "cart",
+      "count": 12,
+      "from_prev": { "p50_ms": 10042, "p90_ms": 10838, "samples": 12 }
+    },
+    {
+      "name": "checkout",
+      "count": 5,
+      "from_prev": { "p50_ms": 95901, "p90_ms": 139873, "samples": 4 }
+    }
+  ],
+  "to_convert": { "p50_ms": 106739, "p90_ms": 149454, "samples": 4 }
 }
 ```
+
+`to_convert` is first step → last step for users who completed the whole funnel.
+
+**`max_step_ms`** (default `1800000`, 30 minutes — matching the SDK flow timeout
+and the session idle window) caps how long a transition may take and still be
+_timed_. It is a timing filter, never a counting filter: a user who came back on
+Monday still converted, so the count includes them while the timing does not.
+That is why `samples` can be lower than `count` — above, one of the five
+checkouts happened 72 hours later.
+
+Pass `max_step_ms=0` for no cap, for funnels that legitimately span days
+(sign-up → first invoice). No mean is reported at any setting: an inferred gap
+has no upper bound, and a mean is the statistic that ruins.
 
 ### `GET /v1/query/flows`
 
@@ -109,15 +208,26 @@ Duration statistics for timed flows (see the SDK's `startFlow`/`endFlow`).
 Optional `app`, `name` (one flow; omit for one row per flow), `from`, `to`,
 `limit` (default 50), and `group`:
 
-| `group`      | Rows are                         | Answers                 |
-| ------------ | -------------------------------- | ----------------------- |
-| _(omitted)_  | one per flow                     | how long does this take |
-| `user`       | one per user id                  | who is slow at it       |
-| `day`        | one per `YYYY-MM-DD`             | is it getting worse     |
-| `prop:<key>` | one per value of that event prop | what makes it slow      |
+| `group`         | Rows are                               | Answers                 |
+| --------------- | -------------------------------------- | ----------------------- |
+| _(omitted)_     | one per flow                           | how long does this take |
+| `user`          | one per user id                        | who is slow at it       |
+| `day`           | one per `YYYY-MM-DD`                   | is it getting worse     |
+| `prop:<key>`    | one per value of that event prop       | what makes it slow      |
+| `session:<key>` | one per value of that session-meta key | where is it slow        |
+| `trait:<key>`   | one per value of that user trait       | which cohort is slow    |
 
-Anything else is a `400`, as is a bare `prop:` with no key. The prop key is
-bound as a JSON path — it never reaches the SQL text.
+`session:<key>` reads the context on the session row — `viewport_bucket`, `ua`,
+`tz`, `connection`, `language` — which is what turns "task.create takes 52s"
+into "on mobile it takes 2m10s". Flows from sessions with no context are still
+counted, bucketed under an empty group.
+
+`trait:<key>` reads `user.traits` as recorded on the session — role, team, plan.
+`?trait=<key>:<value>` (repeatable) narrows instead of grouping; every one must
+match.
+
+Anything else is a `400`, as is a bare `prop:`, `session:` or `trait:` with no
+key. The key is bound as a JSON path — it never reaches the SQL text.
 
 ```json title="response for name=task.create&group=user"
 {
@@ -156,6 +266,12 @@ took. Rows are busiest-first. `flows` and `names` are always arrays, never
 `null`.
 
 ### `GET /v1/query/aggregates`
+
+Takes `app`, `from`, `to`, `limit`, and `tz` — the viewer's offset in minutes
+east of UTC (as `-Date.prototype.getTimezoneOffset()`). Day-bucketed series use
+it so calendar days line up with the days the reader lived through; an operator
+in IST reading UTC buckets would see their days split at 05:30. Clamped to ±14h;
+absent or malformed means UTC.
 
 DAU, top events, top pages, and errors-by-day in one payload. Optional `app`,
 `from`, `to`, and `limit` (top-N size, default 10).

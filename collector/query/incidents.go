@@ -74,8 +74,8 @@ func (h *IncidentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	from := ev.Ts - 60_000  // 60s before
-	to := ev.Ts + 10_000    // 10s after
+	from := ev.Ts - 60_000 // 60s before
+	to := ev.Ts + 10_000   // 10s after
 
 	breadcrumbs, err := h.st.QueryEventsBySessionWindow(ev.SessionID, from, to)
 	if err != nil {

@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "rrweb/dist/style.css";
-import { createReplaySurface, type Marker, type ReplayHandle } from "./replaySurface";
+// Type-only: erased at compile time, so importing these costs no runtime
+// dependency on rrweb. The surface itself is loaded on demand below — it pulls
+// in the whole replay engine (81% of the dashboard bundle before this split).
+import type { Marker, ReplayHandle } from "./replaySurface";
 import { Icon } from "../components/Icon.js";
 import { Avatar } from "../components/Avatar.js";
 import { RelTime } from "../components/RelTime.js";
 import { SkeletonRows } from "../components/Skeleton.js";
+import { applyRange, type TimeRange } from "../range.js";
 
 interface Session {
   session_id: string;
@@ -234,7 +238,13 @@ function InspectorEvents({
   );
 }
 
-export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string } = {}) {
+export function ReplayPlayer({
+  initialSessionId,
+  range,
+}: {
+  initialSessionId?: string;
+  range: TimeRange;
+}) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selected, setSelected] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
@@ -251,7 +261,9 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
   const logsRef = useRef<ConsoleLine[]>([]);
 
   useEffect(() => {
-    fetch("/v1/query/sessions")
+    const params = new URLSearchParams();
+    applyRange(params, range);
+    fetch(`/v1/query/sessions?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => {
         const list: Session[] = d.sessions ?? [];
@@ -339,6 +351,7 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
         const firstTs = (first?.timestamp as number) ?? 0;
         firstTsRef.current = firstTs;
 
+        const { createReplaySurface } = await import("./replaySurface");
         playerRef.current = createReplaySurface(playerContainerRef.current, allEvents);
 
         // Sync inspector panes to playback position.

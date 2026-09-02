@@ -28,12 +28,18 @@ jobs:
           go-version: "1.25"
           cache-dependency-path: collector/go.sum
       # The dashboard bundle (collector/dashboard/ui/dist) is a build artifact,
-      # not committed, and is consumed by `//go:embed ui/dist`. It must exist
+      # not committed, and is consumed by `//go:embed all:ui/dist`. It must exist
       # before any go command, or the embed fails to compile. Building it here
       # also lets TestNoExternalAssetsInDashboard run for real instead of skipping.
       - name: build embedded dashboard
         working-directory: collector/dashboard/ui
         run: npm install --no-audit --no-fund && npm run build
+      # The dashboard's initial payload is budgeted so the replay engine cannot
+      # creep back into it. rrweb is ~81KB gz and belongs in a lazy chunk; a
+      # stray static import would quietly sextuple what every page load costs.
+      - name: dashboard size budget
+        working-directory: collector/dashboard/ui
+        run: npm run size-check
       - name: go vet
         working-directory: collector
         run: go vet ./...

@@ -1,5 +1,5 @@
-// Bundles @spyglass/sdk with esbuild (ESM, code-split so rrweb/autocapture can
-// be lazy chunks loaded only when enabled) and emits type declarations via tsc.
+// Bundles @spyglass/sdk with esbuild (ESM, code-split so rrweb can be a lazy
+// chunk loaded only when replay is enabled) and emits type declarations via tsc.
 // Run with `node build.ts` (Node strips the types).
 import { build } from "esbuild";
 import { execFileSync } from "node:child_process";

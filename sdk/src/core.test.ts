@@ -8,7 +8,6 @@ describe("init()", () => {
     init({ endpoint: "http://localhost:7474", app: "demo", key: "k", user: { id: "u1" } });
     const cfg = getConfig();
     expect(cfg.replay).toBe(true);
-    expect(cfg.autocapture).toBe(false);
     expect(cfg.network).toBe(true);
     expect(cfg.maskInputs).toBe("password");
     expect(cfg.reportWidget).toBe(true);
@@ -21,10 +20,10 @@ describe("init()", () => {
       key: "k",
       user: { id: "u" },
       replay: false,
-      autocapture: true,
+      reportWidget: false,
     });
     expect(getConfig().replay).toBe(false);
-    expect(getConfig().autocapture).toBe(true);
+    expect(getConfig().reportWidget).toBe(false);
   });
 
   it("throws when endpoint is missing", () => {

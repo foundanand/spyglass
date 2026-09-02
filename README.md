@@ -13,7 +13,7 @@ bug occurred" isn't a capture problem — it's a query over data already on disk
 - **~5KB gzipped SDK.** rrweb loads lazily (~85KB gz), only when replay is on.
 - **~20MB RAM collector, ~21MB Docker image.** Pure-Go SQLite (`modernc.org/sqlite`), no CGo, static binary.
 - **Configure once, never touch again.** One JSON file is the entire ops story.
-- **Air-gap-ready — no phone-home, ever.** Zero outbound calls; runs fully disconnected. GPL-3.0, self-hosted — everything stays on your machine. ([enforced by a test](collector/airgap_test.go).)
+- **Air-gap-ready — no phone-home, ever.** No outbound calls unless you configure a webhook, and none at all by default; runs fully disconnected. GPL-3.0, self-hosted — everything stays on your machine. ([enforced by a test](collector/airgap_test.go).)
 
 ---
 
@@ -246,7 +246,8 @@ const f = spyglass.flow(name); f.end();    // handle form, for same-scope start/
 - Network bodies are opt-in per route prefix (`network: { bodies: ["/api/"] }`);
   `Authorization` / `Cookie` headers are **never** recorded.
 - Replays auto-expire (21 days default); events are tiny and kept by default.
-- No phone-home, no external calls, ever. Everything stays on the operator's box.
+- No phone-home. The collector makes no outbound call at all unless you
+  configure `webhooks` — see [Air-gapped deployment](#air-gapped--offline-deployment).
 
 ---
 
@@ -258,9 +259,9 @@ nothing ever leaves it.
 
 **What's guaranteed (and tested):**
 
-- **The collector makes zero outbound connections.** No update check, no
-  telemetry, no license call, no LLM. Any future opt-in egress must be
-  explicitly marked and reviewed — see the guard below.
+- **The collector makes zero outbound connections out of the box.** No update
+  check, no telemetry, no license call, no LLM. The single opt-in exception is
+  described below; with it unconfigured, no egress code path exists at all.
 - **The dashboard loads entirely from the binary.** No CDN, no Google Fonts, no
   remote scripts or stylesheets. A browser with no internet renders it fully.
 - **The SDK only ever talks to your configured `endpoint`** (your collector).
@@ -282,12 +283,49 @@ amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
   SDK and collector can be updated independently — no lockstep redeploy across
   the boundary.
 
-**The one thing to watch:** optional features that _would_ egress — a Slack
-webhook on new bug reports, or the auto-summary that POSTs an incident slice to
-an LLM — are **off by default and not yet implemented**. If you enable one, point
-it at an in-enclave endpoint (e.g. a local model), and note that the air-gap
-guard test requires any such call to carry an inline `// airgap:allow <reason>`
-marker so the exception is deliberate and documented, not accidental.
+### The one exception: `webhooks`
+
+One feature can make the collector originate a connection, and only one:
+
+```json
+{
+  "webhooks": {
+    "on_bug_report": "env:SG_WEBHOOK",
+    "on_new_error": "env:SG_WEBHOOK",
+    "dashboard_url": "https://spyglass.internal"
+  }
+}
+```
+
+Precisely what happens when you set it:
+
+- **Unconfigured, nothing can leave.** This is structural, not a flag. With no
+  URL the notifier is never constructed, and no code path exists that could
+  dial out — you cannot enable egress by fat-fingering a config key.
+- **Configured, exactly one call per notification** goes to the URL you named:
+  a small JSON body with the app, user, event name, the bug report's comment,
+  and a deep link to the incident view. Never event contents beyond that, never
+  a replay, never the database.
+- **Two triggers only**, not a rules engine: a `bug_report` arriving, or an
+  error signature seen for the first time in 15 minutes. A burst of the same
+  error is one message, not one per event.
+- **Fire-and-forget**, 5s timeout, no retry queue. A dead receiver logs a line;
+  it never delays or fails `POST /v1/events`.
+- **The collector logs `webhooks: enabled`** at startup, so an operator can see
+  from the logs alone whether this deployment can talk to anything.
+
+**Point it at an in-enclave receiver — a Mattermost server, an internal relay,
+anything on your own network — and the air gap is intact.** That is the intended
+pattern. Pointing it at `hooks.slack.com` is a deliberate decision to send bug
+report text outside your network.
+
+The webhook call carries an inline `// airgap:allow <reason>` marker, which is
+what lets it past [`collector/airgap_test.go`](collector/airgap_test.go). Every
+other outbound call still fails the build — the guard is the feature, not an
+obstacle, and this exception is reviewable because it had to be written down.
+
+The auto-summary that would POST an incident slice to an LLM remains **not
+implemented**, and would need the same treatment.
 
 See also the **Content-Security-Policy** and **web-font** notes in the
 [integration checklist](#3-integration-checklist) — both are the browser side of

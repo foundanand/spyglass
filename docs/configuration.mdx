@@ -53,10 +53,11 @@ data/
 A map of app slug → settings. At least one app is **required**; the collector
 refuses to start otherwise. The SDK's `app` and `key` must match an entry here.
 
-| Field     | Required | Purpose                                                                  |
-| --------- | -------- | ------------------------------------------------------------------------ |
-| `key`     | yes      | Secret the SDK presents on every ingest request. Any long random string. |
-| `origins` | no       | Allowed browser origins (CORS) for this app. Add your dev and prod URLs. |
+| Field        | Required | Purpose                                                                  |
+| ------------ | -------- | ------------------------------------------------------------------------ |
+| `key`        | yes      | Key the SDK presents on every ingest request. Any long random string.    |
+| `server_key` | no       | Separate secret for non-browser callers. Enables server-side ingest.     |
+| `origins`    | no       | Allowed browser origins (CORS) for this app. Add your dev and prod URLs. |
 
 Run several apps off one collector by adding more entries — each with its own key.
 
@@ -64,6 +65,25 @@ Run several apps off one collector by adding more entries — each with its own 
   The app `key` authenticates **ingest** (`/v1/events`, `/v1/replay`). It is separate from the
   dashboard password, which gates the *reading* side.
 </Callout>
+
+### `server_key` — reporting from a worker or cron job
+
+Optional and absent by default, in which case only browsers can report.
+
+```json
+"apps": { "inventory": { "key": "sg_live_…", "server_key": "env:SG_SERVER_KEY" } }
+```
+
+The browser `key` ships to the client and is public by design, which is why it is
+paired with `origins`. A `server_key` is a real secret — never sent to a client —
+and so it is allowed to skip the origin check, because a server has no meaningful
+`Origin` to present. **The collector refuses to start if the two are equal**,
+since that would let every browser skip the check and make the allowlist
+decorative.
+
+See the [server-side snippet](/docs/api#reporting-from-a-server) for the request
+shape. Pass the browser's `session_id` where you have one, so the server event
+lands on that session's timeline rather than becoming a parallel firehose.
 
 ## `retention`
 
@@ -90,6 +110,42 @@ fine for localhost, not for anything reachable by others.
 
 ---
 
+## `webhooks`
+
+The **only** setting that lets the collector originate a network connection.
+Omit it and none is possible — see [Air-gapped deployment](/docs/deployment).
+
+| Field           | Purpose                                                             |
+| --------------- | ------------------------------------------------------------------- |
+| `on_bug_report` | POSTed when a user files a bug report.                              |
+| `on_new_error`  | POSTed the first time an error signature appears in a 15m window.   |
+| `dashboard_url` | Public base URL of this collector, used to build the incident link. |
+
+```json
+"webhooks": {
+  "on_bug_report": "env:SG_WEBHOOK",
+  "on_new_error": "env:SG_WEBHOOK",
+  "dashboard_url": "https://spyglass.internal"
+}
+```
+
+The body is small JSON with a Slack-compatible `text` field alongside structured
+`kind`, `app`, `user`, `name` and `incident_url` — Slack-shaped by default
+because that is the common case, but a plain webhook so anything can receive it.
+
+Delivery is fire-and-forget with a 5-second timeout and no retry queue: a slow
+or dead receiver logs a line and never delays or fails ingest. Repeats of the
+same signature within 15 minutes are collapsed, so an error spiking across every
+session is one message rather than hundreds.
+
+<Callout type="warn">
+  This is the project's only egress. Point it at a receiver inside your own network and the air-gap
+  guarantee holds; point it at a public host and you are choosing to send bug report text outside
+  it. The collector logs `webhooks: enabled` at startup so this is visible from the logs alone.
+</Callout>
+
+---
+
 ## Env-var resolution
 
 Any string value of `"env:NAME"` is replaced at load time with the environment
@@ -97,7 +153,8 @@ variable `NAME`. The collector **fails to start** if the variable is unset, so a
 missing secret is a loud error, not a silent open door.
 
 ```json
-"auth": { "dashboard_password": "env:SPYGLASS_PASS" }
+"auth": { "dashboard_password": "env:SPYGLASS_PASS" },
+"webhooks": { "on_bug_report": "env:SG_WEBHOOK" }
 ```
 
 ```bash
@@ -117,5 +174,6 @@ Keep real secrets out of the file this way and commit the config safely.
 | `retention.replays_days`  | `21`               |
 | `retention.events_days`   | `0` (keep forever) |
 | `auth.dashboard_password` | empty (no auth)    |
+| `webhooks`                | absent (no egress) |
 
 A copyable starting point lives at `spyglass.config.example.json` in the repo.

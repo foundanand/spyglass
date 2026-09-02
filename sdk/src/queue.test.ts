@@ -5,6 +5,15 @@ import { _resetSession } from "./session.js";
 
 const mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
 
+const anEvent = (name: string) => ({
+  ts: Date.now(),
+  app: "demo",
+  user_id: "u1",
+  session_id: "s1",
+  type: "event" as const,
+  name,
+});
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal("fetch", mockFetch);
@@ -96,5 +105,49 @@ describe("flush() with sendBeacon", () => {
 
     expect(sendBeacon).toHaveBeenCalledOnce();
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("flush while a POST is in flight", () => {
+  // The batch used to be spliced out of the queue before the `flushing` guard
+  // was checked, so a second flush during an in-flight request discarded those
+  // events silently — worst on the slow connections where it is likeliest.
+  it("keeps the events queued rather than dropping them", () => {
+    const hanging = vi.fn().mockReturnValue(new Promise(() => {}));
+    vi.stubGlobal("fetch", hanging);
+
+    enqueue(anEvent("e1"));
+    flush();
+    expect(hanging).toHaveBeenCalledTimes(1);
+
+    enqueue(anEvent("e2"));
+    enqueue(anEvent("e3"));
+    flush();
+
+    expect(hanging).toHaveBeenCalledTimes(1); // still blocked, correctly
+    expect(_queueLength()).toBe(2); // and nothing was lost
+  });
+
+  it("retries on the timer once the in-flight request settles", async () => {
+    let release!: (r: Response) => void;
+    const gated = vi
+      .fn()
+      .mockReturnValueOnce(new Promise<Response>((res) => (release = res)))
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", gated);
+
+    enqueue(anEvent("e1"));
+    flush();
+
+    enqueue(anEvent("e2"));
+    flush(); // deferred, and schedules a retry
+    expect(_queueLength()).toBe(1);
+
+    release(new Response(null, { status: 204 }));
+    await vi.waitFor(() => expect(_queueLength()).toBe(1));
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.waitFor(() => expect(_queueLength()).toBe(0));
+    expect(gated).toHaveBeenCalledTimes(2);
   });
 });

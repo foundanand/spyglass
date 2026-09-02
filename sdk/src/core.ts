@@ -12,7 +12,7 @@ export function init(config: SpyglassConfig): void {
 
   _config = {
     replay: true,
-    autocapture: false,
+    context: true,
     network: true,
     maskInputs: "password",
     reportWidget: true,

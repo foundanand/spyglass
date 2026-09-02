@@ -11,6 +11,7 @@ import (
 
 	"github.com/foundanand/spyglass/collector/dashboard"
 	"github.com/foundanand/spyglass/collector/ingest"
+	"github.com/foundanand/spyglass/collector/notify"
 	"github.com/foundanand/spyglass/collector/query"
 	"github.com/foundanand/spyglass/collector/retention"
 	"github.com/foundanand/spyglass/collector/store"
@@ -22,16 +23,28 @@ func run(cfg *Config, st *store.Store) error {
 	// Convert config apps to ingest.AppCfg map.
 	apps := make(map[string]ingest.AppCfg, len(cfg.Apps))
 	for name, a := range cfg.Apps {
-		apps[name] = ingest.AppCfg{Key: a.Key, Origins: a.Origins}
+		apps[name] = ingest.AppCfg{Key: a.Key, ServerKey: a.ServerKey, Origins: a.Origins}
 	}
 
 	replayHandler := query.NewReplayHandler(cfg.DataDir)
 	incidentHandler := query.NewIncidentHandler(st, cfg.DataDir)
 
+	// nil unless a webhook is configured — see notify's package comment for why
+	// that is structural rather than a flag.
+	notifier := notify.New(notify.Config{
+		OnBugReport:  cfg.Webhooks.OnBugReport,
+		OnNewError:   cfg.Webhooks.OnNewError,
+		DashboardURL: cfg.Webhooks.DashboardURL,
+	})
+	if notifier.Enabled() {
+		log.Printf("webhooks: enabled (the collector will make outbound calls)")
+	}
+
 	// Ingest endpoints authenticate with per-app keys — never behind the dashboard
 	// password, or the SDK could never post.
-	mux.Handle("POST /v1/events", ingest.NewEventsHandler(st, apps))
-	mux.Handle("OPTIONS /v1/events", ingest.NewEventsHandler(st, apps))
+	eventsHandler := ingest.NewEventsHandler(st, apps).WithNotifier(notifier)
+	mux.Handle("POST /v1/events", eventsHandler)
+	mux.Handle("OPTIONS /v1/events", eventsHandler)
 	mux.Handle("POST /v1/replay", ingest.NewReplayHandler(st, apps, cfg.DataDir))
 	mux.Handle("OPTIONS /v1/replay", ingest.NewReplayHandler(st, apps, cfg.DataDir))
 
@@ -45,6 +58,8 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("GET /v1/query/funnel", gate(query.NewFunnelHandler(st)))
 	mux.Handle("GET /v1/query/flows", gate(query.NewFlowsHandler(st)))
 	mux.Handle("GET /v1/query/aggregates", gate(query.NewAggregatesHandler(st)))
+	mux.Handle("GET /v1/query/counts", gate(query.NewCountsHandler(st)))
+	mux.Handle("GET /v1/query/flow-detail", gate(query.NewFlowDetailHandler(st)))
 	mux.Handle("GET /v1/sessions/", gate(replayHandler))
 	mux.Handle("GET /v1/incidents/", gate(incidentHandler))
 	mux.Handle("/", gate(dashboard.Handler()))

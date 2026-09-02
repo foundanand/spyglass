@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
-    "dev": "node build.mjs --watch"
+    "dev": "node build.mjs --watch",
+    "size-check": "node size-check.mjs"
   },
   "dependencies": {
     "preact": "^10.29.2",

@@ -195,7 +195,7 @@ them will be declined:
   escape hatch is DuckDB — still a file, never a server.)
 - **No horizontal scaling / multi-tenant SaaS.** Single-tenant per deployment;
   vertical headroom on one machine is enormous.
-- **No always-on DOM autocapture by default**, no anonymous-visitor analytics,
+- **No DOM autocapture at all**, no anonymous-visitor analytics,
   no cookie-consent machinery, no ad/UTM attribution, no A/B testing.
 - **No phone-home, no external calls** — see the air-gap guard above.
 

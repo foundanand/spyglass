@@ -8,7 +8,7 @@ import (
 	"github.com/foundanand/spyglass/collector/store"
 )
 
-// AggregatesHandler serves GET /v1/query/aggregates[?app=&from=&to=&limit=].
+// AggregatesHandler serves GET /v1/query/aggregates[?app=&from=&to=&tz=&limit=].
 // It returns DAU, top events, top pages, and error counts by day in one payload
 // so the dashboard's aggregates view needs a single round trip.
 type AggregatesHandler struct {
@@ -35,13 +35,8 @@ func (h *AggregatesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 	app := q.Get("app")
-	var from, to int64
-	if s := q.Get("from"); s != "" {
-		from, _ = strconv.ParseInt(s, 10, 64)
-	}
-	if s := q.Get("to"); s != "" {
-		to, _ = strconv.ParseInt(s, 10, 64)
-	}
+	from, to := timeWindow(r)
+	tz := tzOffsetMin(r)
 	limit := 10
 	if s := q.Get("limit"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil {
@@ -51,7 +46,7 @@ func (h *AggregatesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	var resp aggregatesResp
 	var err error
-	if resp.DAU, err = h.store.DAU(app, from, to); err != nil {
+	if resp.DAU, err = h.store.DAU(app, from, to, tz); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -63,7 +58,7 @@ func (h *AggregatesHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	if resp.ErrorsByDay, err = h.store.ErrorsByDay(app, from, to); err != nil {
+	if resp.ErrorsByDay, err = h.store.ErrorsByDay(app, from, to, tz); err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}

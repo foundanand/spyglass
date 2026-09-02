@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import "rrweb/dist/style.css";
-import { createReplaySurface, type Marker, type ReplayHandle } from "./replaySurface";
+// Type-only: erased at compile time, so importing these costs no runtime
+// dependency on rrweb. The surface itself is loaded on demand below — it pulls
+// in the whole replay engine (81% of the dashboard bundle before this split).
+import type { Marker, ReplayHandle } from "./replaySurface";
 import { Icon } from "../components/Icon.js";
 import { Avatar } from "../components/Avatar.js";
 import { PropsChips } from "../components/PropsChips.js";
+import { rowButton } from "../components/rowProps.js";
 
 interface SpyEvent {
   id: number;
@@ -114,8 +118,8 @@ function BreadcrumbsTable({
             <tr
               key={e.id}
               class={`row-clickable${isIncident ? " row-error" : ""}${isNow ? " now" : ""}`}
-              onClick={() => onSeek(e.ts)}
               title="Jump to this moment"
+              {...rowButton(() => onSeek(e.ts), `Jump to ${e.type} ${e.name || e.url || ""}`)}
             >
               <td class="ts">{fmtTs(e.ts)}</td>
               <td>
@@ -190,7 +194,8 @@ function NetworkWaterfall({
             <tr
               key={i}
               class={`row-clickable${nowTs > 0 && e.ts === nowRow ? " now" : ""}`}
-              onClick={() => onSeek(e.ts)}
+              title="Jump to this request"
+              {...rowButton(() => onSeek(e.ts), `Jump to request ${e.name}`)}
             >
               <td class="ts">{method}</td>
               <td
@@ -335,6 +340,7 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         const firstTs = (firstEvent?.timestamp as number) ?? 0;
         firstTsRef.current = firstTs;
 
+        const { createReplaySurface } = await import("./replaySurface");
         playerRef.current = createReplaySurface(playerContainerRef.current, allEvents);
 
         // Markers: the incident moment + every breadcrumb of interest.
@@ -428,8 +434,8 @@ export function Incident({ eventId, onBack }: IncidentProps) {
             <Avatar id={ev.user_id} size={16} /> {ev.user_id}
           </span>
           <span>·</span>
-          <span class="ts" title={ev.session_id}>
-            {ev.session_id.slice(0, 12)}…
+          <span class="ts" title={ev.session_id || "no session (server-side event)"}>
+            {ev.session_id ? `${ev.session_id.slice(0, 12)}…` : "—"}
           </span>
           {ev.url && (
             <>

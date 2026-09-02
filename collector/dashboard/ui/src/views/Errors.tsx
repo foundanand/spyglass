@@ -3,6 +3,9 @@ import { Icon } from "../components/Icon.js";
 import { Avatar } from "../components/Avatar.js";
 import { StatTile, StatStrip } from "../components/StatTile.js";
 import { SkeletonRows } from "../components/Skeleton.js";
+import { rowButton } from "../components/rowProps.js";
+import { SessionLink, UserLink } from "../components/EntityLink.js";
+import { applyRange, type TimeRange } from "../range.js";
 
 interface Event {
   id: number;
@@ -18,6 +21,7 @@ interface Event {
 
 interface ErrorsProps {
   onOpenIncident: (id: number) => void;
+  range: TimeRange;
 }
 
 function fmtTs(ms: number) {
@@ -50,24 +54,35 @@ function StackRow({ stack }: { stack?: unknown }) {
   );
 }
 
-export function Errors({ onOpenIncident }: ErrorsProps) {
+export function Errors({ onOpenIncident, range }: ErrorsProps) {
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterUser, setFilterUser] = useState("");
   const [typeFilter, setTypeFilter] = useState<"error" | "bug_report" | "">("error");
+  const [nextCursor, setNextCursor] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  /** Filters shared by the table and its CSV export. */
+  function queryParams(): URLSearchParams {
+    const params = new URLSearchParams();
+    if (typeFilter) params.set("type", typeFilter);
+    if (filterUser) params.set("user", filterUser);
+    applyRange(params, range);
+    return params;
+  }
 
   async function load() {
     setLoading(true);
     setFetchError(null);
     try {
-      const params = new URLSearchParams({ limit: "200" });
-      if (typeFilter) params.set("type", typeFilter);
-      if (filterUser) params.set("user", filterUser);
+      const params = queryParams();
+      params.set("limit", "200");
       const res = await fetch(`/v1/query/events?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = (await res.json()) as { events: Event[] };
+      const d = (await res.json()) as { events: Event[]; next?: string };
       setEvents(d.events ?? []);
+      setNextCursor(d.next ?? "");
     } catch (e) {
       setFetchError(String(e));
     } finally {
@@ -77,7 +92,32 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
 
   useEffect(() => {
     void load();
-  }, [filterUser, typeFilter]);
+  }, [filterUser, typeFilter, range.key]);
+
+  async function loadOlder() {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const params = queryParams();
+      params.set("limit", "200");
+      params.set("cursor", nextCursor);
+      const res = await fetch(`/v1/query/events?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = (await res.json()) as { events: Event[]; next?: string };
+      setEvents((prev) => [...prev, ...(d.events ?? [])]);
+      setNextCursor(d.next ?? "");
+    } catch (e) {
+      setFetchError(String(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
+  const csvHref = (() => {
+    const params = queryParams();
+    params.set("format", "csv");
+    return `/v1/query/events?${params.toString()}`;
+  })();
 
   const errorCount = events.filter((e) => e.type === "error").length;
   const reportCount = events.filter((e) => e.type === "bug_report").length;
@@ -110,6 +150,10 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
         <button onClick={load}>
           <Icon name="refresh" /> Refresh
         </button>
+        {/* Same query string as the table, so the file is the view on screen. */}
+        <a class="btn-link" href={csvHref} download title="Download this view as CSV">
+          <Icon name="chevron-right" size={14} /> CSV
+        </a>
         {loading && <span class="ts">Loading…</span>}
       </div>
       {fetchError && <div style="color:var(--red);margin-bottom:1rem">{fetchError}</div>}
@@ -150,8 +194,8 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
             <tr
               key={e.id}
               class={`row-clickable ${e.type === "bug_report" ? "row-bug_report" : "row-error"}`}
-              onClick={() => onOpenIncident(e.id)}
               title="Open incident view"
+              {...rowButton(() => onOpenIncident(e.id), `Open incident: ${e.name}`)}
             >
               <td class="ts">{fmtTs(e.ts)}</td>
               <td>
@@ -162,7 +206,7 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
               <td>
                 <span style="display:inline-flex;align-items:center;gap:6px">
                   <Avatar id={e.user_id} size={18} />
-                  {e.user_id}
+                  <UserLink id={e.user_id} range={range.key} />
                 </span>
               </td>
               <td class="err-msg">
@@ -173,8 +217,8 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
                 )}
               </td>
               <td class="ts">{String(e.props?.source ?? e.url ?? "")}</td>
-              <td class="ts" title={e.session_id}>
-                {e.session_id.slice(0, 12)}…
+              <td class="ts">
+                <SessionLink id={e.session_id} range={range.key} />
               </td>
               <td class="row-chevron">
                 <Icon name="chevron-right" />
@@ -183,6 +227,16 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
           ))}
         </tbody>
       </table>
+
+      <div class="pager">
+        {nextCursor ? (
+          <button type="button" onClick={loadOlder} disabled={loadingMore}>
+            {loadingMore ? "Loading…" : "Older"}
+          </button>
+        ) : (
+          events.length > 0 && <span class="ts">End of this window.</span>
+        )}
+      </div>
     </div>
   );
 }

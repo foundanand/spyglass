@@ -24,7 +24,7 @@ PostHog / Highlight / OpenReplay assume billion-event scale: ClickHouse, Kafka, 
 
 ## 2. Non-goals
 
-- No _always-on_ DOM autocapture. It exists, but strictly opt-in (`autocapture: true`); off by default because explicit `capture()` + auto-pageviews give cleaner data. When off, the code for it never loads.
+- No DOM autocapture, in any form. Replay already captures every interaction visually and explicit `capture()` + auto-pageviews record the ones that carry meaning; scraping every click on top of that produces a haystack and widens what leaves the page. The option was cut, not deferred (see `changelog/006-*`).
 - No anonymous-visitor analytics (tracking logged-out strangers — all our users are authenticated), no cookie-consent machinery (GDPR banners for tracking the public), no ad attribution (UTM/campaign tracking — we run no ads), no A/B testing (variant experiments — separate product, could be added much later).
 - No horizontal scaling, no multi-tenant SaaS (single-tenant per deployment). Vertical headroom on one machine is enormous; no hard user ceiling.
 - No database servers of any kind: no ClickHouse/Postgres/Redis/Kafka/MongoDB. Embedded SQLite + flat files only.
@@ -126,7 +126,7 @@ spyglass.init({
   app: "inventory",
   user: { id: "anand", name?: "Anand", email?: ... }, // identified by design
   replay: true,                 // default true
-  autocapture: false,           // default false; true = record all clicks + form interactions
+  context: true,                // default true; coarse per-session environment
   network: true,                // default true (headers + sizes; bodies opt-in)
   maskInputs: "password",       // "all" | "password" | "none"
   reportWidget: true,           // floating bug-report button
@@ -141,10 +141,10 @@ spyglass.report("it broke");     // programmatic bug report
 
 - **Batching:** in-memory queue; flush every 5s or 20 events; `navigator.sendBeacon` on `visibilitychange`/`pagehide`. Never lose tab-close events.
 - **Sessions:** random ID in `sessionStorage`; new ID after 30min idle.
+- **Session context:** viewport/screen/dpr/UA/language/tz/referrer/connection, collected once and sent as `meta` on the first batch of a session (not per event). Populates `sessions.meta`, and is sliceable via `group=session:<key>`. No fingerprinting surface, no IP; `context: false` disables it.
 - **Replay:** rrweb `record()` + console plugin; gzip chunks with native `CompressionStream`; POST every ~10s; backpressure → drop replay before dropping events.
 - **Network:** patch `fetch` + `XMLHttpRequest`. Default: method, URL, status, duration, sizes. Bodies only when `network: { bodies: ["/api/"] }` allow-list matches; truncate to 2KB. Never capture `Authorization`/`Cookie` headers.
 - **Errors:** `window.onerror`, `unhandledrejection`, patched `console.error`. Dedup identical errors within 5s.
-- **Autocapture (opt-in):** when `autocapture: true`, delegate-listen on `click` (record selector, trimmed innerText, x/y) and `change` on form controls (field name only, never values unless unmasked). Lazy-loaded module — zero bytes shipped when disabled.
 - **Report widget:** floating button → comment box → emits `bug_report` event. Shadow DOM, no style bleed.
 - **Next.js helper:** `<SpyglassProvider config={...}>` — wires app-router pageviews via `usePathname`/`useSearchParams`. Works in plain JS apps without it.
 - **Budget:** ≤5KB gz core; rrweb lazy-loaded as a second chunk only when `replay: true`.
@@ -153,17 +153,18 @@ spyglass.report("it broke");     // programmatic bug report
 
 ### Endpoints
 
-| Route                                        | Purpose                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| `POST /v1/events`                            | Batched JSON events → single-transaction insert                          |
-| `POST /v1/replay?session=&seq=`              | Gzipped rrweb chunk → disk, bump `sessions.chunk_count`                  |
-| `GET /v1/query/users`                        | Active users, last seen, session counts                                  |
-| `GET /v1/query/events?user=&type=&from=&to=` | Filtered event stream                                                    |
-| `GET /v1/query/funnel?steps=a,b,c`           | Simple step funnel (SQL, good enough)                                    |
-| `GET /v1/query/flows`                        | Flow durations: p50/p90/p95, abandon rate, `group=user\|day\|prop:<key>` |
-| `GET /v1/sessions/:id/replay`                | Chunk manifest + streaming chunk fetch                                   |
-| `GET /v1/incidents/:event_id`                | **Incident slice**(see §7)                                               |
-| `GET /`                                      | Embedded dashboard                                                       |
+| Route                                        | Purpose                                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `POST /v1/events`                            | Batched JSON events → single-transaction insert                                         |
+| `POST /v1/replay?session=&seq=`              | Gzipped rrweb chunk → disk, bump `sessions.chunk_count`                                 |
+| `GET /v1/query/users`                        | Active users, last seen, session counts                                                 |
+| `GET /v1/query/events?user=&type=&from=&to=` | Filtered event stream                                                                   |
+| `GET /v1/query/funnel?steps=a,b,c`           | Simple step funnel (SQL, good enough)                                                   |
+| `GET /v1/query/flows`                        | Flow durations: p50/p90/p95, abandon rate, `group=user\|day\|prop:<key>\|session:<key>` |
+| `GET /v1/query/counts`                       | Event counts by type in a window (feed chips)                                           |
+| `GET /v1/sessions/:id/replay`                | Chunk manifest + streaming chunk fetch                                                  |
+| `GET /v1/incidents/:event_id`                | **Incident slice**(see §7)                                                              |
+| `GET /`                                      | Embedded dashboard                                                                      |
 
 ### Config — one file, dynamoip-style
 

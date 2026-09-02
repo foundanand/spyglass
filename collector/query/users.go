@@ -8,7 +8,7 @@ import (
 	"github.com/foundanand/spyglass/collector/store"
 )
 
-// UsersHandler serves GET /v1/query/users.
+// UsersHandler serves GET /v1/query/users[?limit=&from=&to=].
 type UsersHandler struct {
 	store *store.Store
 }
@@ -31,7 +31,9 @@ func (h *UsersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	users, err := h.store.QueryUsers(limit)
+	from, to := timeWindow(r)
+
+	users, err := h.store.QueryUsers(limit, from, to)
 	if err != nil {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return

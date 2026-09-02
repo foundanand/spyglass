@@ -1,6 +1,8 @@
 import { useEffect, useState } from "preact/hooks";
 import { Icon } from "../components/Icon.js";
 import { SkeletonRows } from "../components/Skeleton.js";
+import { FlowLink, UserLink } from "../components/EntityLink.js";
+import { applyRange, type TimeRange } from "../range.js";
 
 // Flow durations — the "how long does this take" panel.
 //
@@ -51,9 +53,24 @@ const GROUPS = [
   { value: "", label: "overall" },
   { value: "user", label: "per user" },
   { value: "day", label: "per day" },
+  // Session context. These are what turn "task.create takes 52s" into "on
+  // mobile it takes 2m10s" — the axes that were unavailable until sessions
+  // started carrying meta.
+  { value: "session:viewport_bucket", label: "per device size" },
+  { value: "session:connection", label: "per connection" },
+  { value: "session:tz", label: "per timezone" },
+  { value: "session:language", label: "per language" },
 ];
 
-export function Flows() {
+// Cohort attributes the host app declares via user.traits. Free-text, because
+// spyglass cannot know what a given app calls its roles.
+const TRAIT_GROUP = "trait";
+
+// A flow from a session recorded before context existed (or with context:false)
+// has no value to bucket by. It is still counted; label it honestly.
+const UNKNOWN_GROUP = "unknown";
+
+export function Flows({ range }: { range: TimeRange }) {
   const [data, setData] = useState<FlowsResponse | null>(null);
   const [name, setName] = useState("");
   const [group, setGroup] = useState("");
@@ -67,12 +84,13 @@ export function Flows() {
     try {
       const params = new URLSearchParams();
       if (name) params.set("name", name);
-      // A prop grouping needs both halves; sending "prop:" alone is a 400.
-      if (group === "prop") {
-        if (propKey) params.set("group", `prop:${propKey}`);
+      // A keyed grouping needs both halves; sending "prop:" alone is a 400.
+      if (group === "prop" || group === TRAIT_GROUP) {
+        if (propKey) params.set("group", `${group}:${propKey}`);
       } else if (group) {
         params.set("group", group);
       }
+      applyRange(params, range);
       const res = await fetch(`/v1/query/flows?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setData((await res.json()) as FlowsResponse);
@@ -85,7 +103,7 @@ export function Flows() {
 
   useEffect(() => {
     void load();
-  }, [name, group, propKey]);
+  }, [name, group, propKey, range.key]);
 
   const flows = data?.flows ?? [];
   const names = data?.names ?? [];
@@ -114,12 +132,13 @@ export function Flows() {
             </option>
           ))}
           <option value="prop">per prop…</option>
+          <option value={TRAIT_GROUP}>per user trait…</option>
         </select>
 
-        {group === "prop" && (
+        {(group === "prop" || group === TRAIT_GROUP) && (
           <input
             style="width:140px"
-            placeholder="prop key"
+            placeholder={group === TRAIT_GROUP ? "trait key (e.g. role)" : "prop key"}
             value={propKey}
             onInput={(e) => setPropKey((e.target as HTMLInputElement).value)}
           />
@@ -157,8 +176,19 @@ export function Flows() {
           <tbody>
             {flows.map((f, i) => (
               <tr key={`${f.name}/${f.group ?? ""}/${i}`}>
-                <td class="flow-name" title={grouped ? `${f.name} · ${f.group}` : f.name}>
-                  {grouped ? f.group || "—" : f.name}
+                <td
+                  class="flow-name"
+                  title={grouped ? `${f.name} · ${f.group || UNKNOWN_GROUP}` : f.name}
+                >
+                  {grouped ? (
+                    group === "user" ? (
+                      <UserLink id={f.group ?? ""} range={range.key} />
+                    ) : (
+                      f.group || UNKNOWN_GROUP
+                    )
+                  ) : (
+                    <FlowLink name={f.name} range={range.key} />
+                  )}
                 </td>
                 <td>{f.completions}</td>
                 <td class="flow-p50">{fmtDuration(f.p50_ms)}</td>
