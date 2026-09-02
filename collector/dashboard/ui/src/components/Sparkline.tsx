@@ -17,7 +17,7 @@ export function Sparkline({
   strokeWidth?: number;
 }) {
   if (!values || values.length === 0) {
-    return <svg class="spark" width={width} height={height} />;
+    return <svg class="spark" width={width} height={height} aria-hidden="true" />;
   }
   const pad = strokeWidth + 1;
   const max = Math.max(...values, 1);
@@ -33,7 +33,13 @@ export function Sparkline({
   const area = `${line} L${pts[n - 1][0].toFixed(1)} ${height} L${pts[0][0].toFixed(1)} ${height} Z`;
   const gid = `sg${gradSeq++}`;
   return (
-    <svg class="spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+    <svg
+      class="spark"
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
+    >
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color={color} stop-opacity="0.28" />

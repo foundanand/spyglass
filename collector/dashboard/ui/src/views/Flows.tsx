@@ -116,7 +116,11 @@ export function Flows({ range }: { range: TimeRange }) {
       </h3>
 
       <div class="toolbar">
-        <select value={name} onChange={(e) => setName((e.target as HTMLSelectElement).value)}>
+        <select
+          aria-label="Flow to show"
+          value={name}
+          onChange={(e) => setName((e.target as HTMLSelectElement).value)}
+        >
           <option value="">all flows</option>
           {names.map((n) => (
             <option key={n.name} value={n.name}>
@@ -125,7 +129,11 @@ export function Flows({ range }: { range: TimeRange }) {
           ))}
         </select>
 
-        <select value={group} onChange={(e) => setGroup((e.target as HTMLSelectElement).value)}>
+        <select
+          aria-label="Group flow durations by"
+          value={group}
+          onChange={(e) => setGroup((e.target as HTMLSelectElement).value)}
+        >
           {GROUPS.map((g) => (
             <option key={g.value} value={g.value}>
               {g.label}
@@ -161,16 +169,17 @@ export function Flows({ range }: { range: TimeRange }) {
         </p>
       ) : (
         <table class="flow-table">
+          <caption class="sr-only">Flow durations</caption>
           <thead>
             <tr>
-              <th>{grouped ? "group" : "flow"}</th>
-              <th>runs</th>
-              <th>p50</th>
-              <th>p90</th>
-              <th>mean</th>
-              <th>max</th>
-              <th>abandoned</th>
-              <th>total time</th>
+              <th scope="col">{grouped ? "group" : "flow"}</th>
+              <th scope="col">runs</th>
+              <th scope="col">p50</th>
+              <th scope="col">p90</th>
+              <th scope="col">mean</th>
+              <th scope="col">max</th>
+              <th scope="col">abandoned</th>
+              <th scope="col">total time</th>
             </tr>
           </thead>
           <tbody>

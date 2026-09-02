@@ -134,13 +134,16 @@ export function UserPage({ id, range }: { id: string; range: TimeRange }) {
               <p class="home-empty">No measured flows for this person in this window.</p>
             ) : (
               <table>
+                <caption class="sr-only">
+                  This person's flow timings against the overall median
+                </caption>
                 <thead>
                   <tr>
-                    <th>flow</th>
-                    <th>runs</th>
-                    <th>their median</th>
-                    <th>overall median</th>
-                    <th>difference</th>
+                    <th scope="col">flow</th>
+                    <th scope="col">runs</th>
+                    <th scope="col">their median</th>
+                    <th scope="col">overall median</th>
+                    <th scope="col">difference</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -184,12 +187,13 @@ export function UserPage({ id, range }: { id: string; range: TimeRange }) {
               <p class="home-empty">No sessions in this window.</p>
             ) : (
               <table>
+                <caption class="sr-only">This person's sessions, newest first</caption>
                 <thead>
                   <tr>
-                    <th>started</th>
-                    <th>events</th>
-                    <th>errors</th>
-                    <th>replay</th>
+                    <th scope="col">started</th>
+                    <th scope="col">events</th>
+                    <th scope="col">errors</th>
+                    <th scope="col">replay</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -228,12 +232,13 @@ export function UserPage({ id, range }: { id: string; range: TimeRange }) {
               <p class="home-empty">Nothing broke for this person in this window.</p>
             ) : (
               <table>
+                <caption class="sr-only">Errors and bug reports this person hit</caption>
                 <thead>
                   <tr>
-                    <th>when</th>
-                    <th>type</th>
-                    <th>what</th>
-                    <th>session</th>
+                    <th scope="col">when</th>
+                    <th scope="col">type</th>
+                    <th scope="col">what</th>
+                    <th scope="col">session</th>
                   </tr>
                 </thead>
                 <tbody>

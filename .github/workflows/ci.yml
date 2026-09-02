@@ -40,6 +40,13 @@ jobs:
       - name: dashboard size budget
         working-directory: collector/dashboard/ui
         run: npm run size-check
+      # A static guard for the accessibility defects this UI actually had:
+      # icon-only buttons with no name, headers with no scope, uncaptioned
+      # tables, a slider role without its value attributes. It does not replace
+      # a browser audit — see the script's header for what it cannot see.
+      - name: dashboard accessibility guard
+        working-directory: collector/dashboard/ui
+        run: npm run a11y-check
       - name: go vet
         working-directory: collector
         run: go vet ./...

@@ -95,12 +95,13 @@ function BreadcrumbsTable({
   const nowRow = lastLe(events, nowTs);
   return (
     <table>
+      <caption class="sr-only">Breadcrumbs around the incident</caption>
       <thead>
         <tr>
-          <th>time</th>
-          <th>type</th>
-          <th>name / url</th>
-          <th>details</th>
+          <th scope="col">time</th>
+          <th scope="col">type</th>
+          <th scope="col">name / url</th>
+          <th scope="col">details</th>
         </tr>
       </thead>
       <tbody>
@@ -166,13 +167,16 @@ function NetworkWaterfall({
 
   return (
     <table class="network-table">
+      <caption class="sr-only">Network requests around the incident</caption>
       <thead>
         <tr>
-          <th>method</th>
-          <th>url</th>
-          <th>status</th>
-          <th>duration</th>
-          <th style="width:160px">waterfall</th>
+          <th scope="col">method</th>
+          <th scope="col">url</th>
+          <th scope="col">status</th>
+          <th scope="col">duration</th>
+          <th scope="col" style="width:160px">
+            waterfall
+          </th>
         </tr>
       </thead>
       <tbody>

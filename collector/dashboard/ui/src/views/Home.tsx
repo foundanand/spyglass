@@ -373,6 +373,7 @@ export function Home({ range }: { range: TimeRange }) {
               <p class="home-empty">No events in this window.</p>
             ) : (
               <table class="home-recent-table">
+                <caption class="sr-only">Latest activity</caption>
                 <tbody>
                   {recent.map((e) => (
                     <tr key={e.id}>

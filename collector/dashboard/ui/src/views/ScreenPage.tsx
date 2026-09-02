@@ -86,13 +86,14 @@ export function ScreenPage({ path, range }: { path: string; range: TimeRange }) 
               <p class="home-empty">Nothing has gone wrong on this screen in this window.</p>
             ) : (
               <table>
+                <caption class="sr-only">Errors and bug reports on this screen</caption>
                 <thead>
                   <tr>
-                    <th>when</th>
-                    <th>type</th>
-                    <th>what</th>
-                    <th>person</th>
-                    <th>session</th>
+                    <th scope="col">when</th>
+                    <th scope="col">type</th>
+                    <th scope="col">what</th>
+                    <th scope="col">person</th>
+                    <th scope="col">session</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,11 +129,12 @@ export function ScreenPage({ path, range }: { path: string; range: TimeRange }) 
               <p class="home-empty">No visits in this window.</p>
             ) : (
               <table>
+                <caption class="sr-only">Recent sessions that visited this screen</caption>
                 <thead>
                   <tr>
-                    <th>when</th>
-                    <th>person</th>
-                    <th>session</th>
+                    <th scope="col">when</th>
+                    <th scope="col">person</th>
+                    <th scope="col">session</th>
                   </tr>
                 </thead>
                 <tbody>

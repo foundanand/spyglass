@@ -51,22 +51,6 @@
       "status": "todo"
     },
     {
-      "id": "todo-015",
-      "priority": "P2",
-      "component": "dashboard",
-      "title": "Thinly accessible; the replay player barely at all",
-      "file": "015-accessibility-pass.md",
-      "depends_on": [],
-      "src_files": [
-        "collector/dashboard/ui/src/views/replaySurface.ts",
-        "collector/dashboard/ui/src/index.html"
-      ],
-      "evidence": "Whole UI: 1 :focus-visible rule, 6 aria-* attributes, 4 role=, no sr-only utility. Play/pause button has no accessible name; scrub track is a div with no slider role or keyboard handling",
-      "exit_check": "Replay operable entirely from the keyboard; every control has a name and visible focus; tables announce headers; automated a11y audit green in CI",
-      "effort": "M",
-      "status": "todo"
-    },
-    {
       "id": "todo-016",
       "priority": "P3",
       "component": "dashboard",

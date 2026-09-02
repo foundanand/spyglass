@@ -15,9 +15,14 @@
       --surface-2: #161923;
       --border: #2a2d3a;
       --text: #e2e4ed;
-      --muted: #6b7280;
-      --muted-2: #9199a8;
+      /* --muted carries most secondary text. At #6b7280 it measured 3.48:1 on
+         --surface, under the 4.5:1 needed for normal text; this clears it. */
+      --muted: #8a92a4;
+      --muted-2: #a7aebc;
       --accent: #6366f1;
+      /* White on --accent measures 4.47:1 — just under. Filled controls that
+         carry white text use this darker shade instead. */
+      --accent-strong: #4f46e5;
       --green: #22c55e;
       --red: #ef4444;
       --yellow: #eab308;
@@ -27,12 +32,15 @@
       --font-data: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
       /* semantic event-type colors — single source for badges, rows, markers, chips */
-      --c-event: #818cf8;    --c-event-bg: rgba(99,102,241,.14);
-      --c-pageview: #4ade80; --c-pageview-bg: rgba(34,197,94,.13);
-      --c-error: #f87171;    --c-error-bg: rgba(239,68,68,.13);
-      --c-network: #facc15;  --c-network-bg: rgba(234,179,8,.13);
-      --c-bug: #c084fc;      --c-bug-bg: rgba(168,85,247,.14);
-      --c-flow: #22d3ee;     --c-flow-bg: rgba(34,211,238,.13);
+      /* Backgrounds are the alpha tints pre-composited over --surface. Solid,
+         so contrast is the same wherever a badge lands and an audit can read
+         it — an alpha fill over an unknown parent cannot be measured. */
+      --c-event: #a5b4fc;    --c-event-bg: #242743;
+      --c-pageview: #86efac; --c-pageview-bg: #1b332e;
+      --c-error: #fca5a5;    --c-error-bg: #36222b;
+      --c-network: #fde047;  --c-network-bg: #353123;
+      --c-bug: #d8b4fe;      --c-bug-bg: #2e2544;
+      --c-flow: #67e8f9;     --c-flow-bg: #1b3541;
 
       /* surfaces & interaction states */
       --surface-hover: #20242f;
@@ -133,7 +141,7 @@
       cursor: pointer; transition: color var(--t-fast), background var(--t-fast);
     }
     .range-picker button:hover { color: var(--text); }
-    .range-picker button.active { background: var(--accent); color: #fff; }
+    .range-picker button.active { background: var(--accent-strong); color: #fff; }
     .range-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
     /* count badge inside a type chip — advertises hidden data */
@@ -291,6 +299,31 @@
       outline: 2px solid var(--accent); outline-offset: -2px;
     }
 
+    /* ---- accessibility utilities ---- */
+
+    /* Visually hidden, still announced. Several things below need a text
+       alternative that would be noise on screen: table captions, status
+       messages, the player's live position. */
+    .sr-only {
+      position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+      overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+      border: 0;
+    }
+
+    /* One focus rule was not a focus system. Every interactive element gets a
+       ring that survives on the dark surfaces. */
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    [tabindex]:focus-visible,
+    [role="slider"]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+      border-radius: var(--r-sm);
+    }
+    nav a:focus-visible { outline-offset: 4px; }
+
     main { padding: 1.5rem; }
     h2 { font-size: 1.05rem; font-weight: 650; margin-bottom: 1rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; }
 
@@ -304,7 +337,9 @@
     input::placeholder { color: var(--muted); }
     input:hover, select:hover { border-color: var(--muted); }
     .toolbar button, button.btn {
-      background: var(--accent); border: none; color: #fff;
+      /* --accent-strong, not --accent: white on #6366f1 measures 4.47:1, just
+         under the 4.5:1 threshold for normal text. */
+      background: var(--accent-strong); border: none; color: #fff;
       padding: 0.4rem 0.8rem; border-radius: var(--r-sm); cursor: pointer; font: inherit;
       display: inline-flex; align-items: center; gap: 0.35rem; font-weight: 500;
       box-shadow: var(--sh-1);

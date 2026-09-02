@@ -198,6 +198,7 @@ export function UserTimeline({ range }: { range: TimeRange }) {
                     )}
                   </div>
                   <table class="tl-table">
+                    <caption class="sr-only">Events in this session, in order</caption>
                     <tbody>
                       {ses.map((e) => (
                         <tr key={e.id} class={TYPE_COLOR[e.type] ?? ""}>

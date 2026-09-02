@@ -204,6 +204,7 @@ export function FlowPage({ name, range }: { name: string; range: TimeRange }) {
               Breakdown
               <select
                 class="inline-select"
+                aria-label="Break this flow down by"
                 value={breakdown}
                 onChange={(e) => setBreakdown((e.target as HTMLSelectElement).value as Breakdown)}
               >
@@ -218,15 +219,16 @@ export function FlowPage({ name, range }: { name: string; range: TimeRange }) {
               <p class="home-empty">Nothing to break down on this axis.</p>
             ) : (
               <table>
+                <caption class="sr-only">Flow timings broken down</caption>
                 <thead>
                   <tr>
-                    <th>
+                    <th scope="col">
                       {BREAKDOWNS.find((b) => b.value === breakdown)?.label.replace("by ", "")}
                     </th>
-                    <th>runs</th>
-                    <th>median</th>
-                    <th>p90</th>
-                    <th>gave up</th>
+                    <th scope="col">runs</th>
+                    <th scope="col">median</th>
+                    <th scope="col">p90</th>
+                    <th scope="col">gave up</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -256,6 +258,7 @@ export function FlowPage({ name, range }: { name: string; range: TimeRange }) {
               Slowest sessions
               <select
                 class="inline-select"
+                aria-label="Filter runs by outcome"
                 value={outcome}
                 onChange={(e) =>
                   setOutcome((e.target as HTMLSelectElement).value as typeof outcome)
@@ -275,13 +278,16 @@ export function FlowPage({ name, range }: { name: string; range: TimeRange }) {
               <p class="home-empty">No runs match.</p>
             ) : (
               <table>
+                <caption class="sr-only">
+                  Slowest runs of this flow, each linking to its recording
+                </caption>
                 <thead>
                   <tr>
-                    <th>duration</th>
-                    <th>outcome</th>
-                    <th>person</th>
-                    <th>when</th>
-                    <th>session</th>
+                    <th scope="col">duration</th>
+                    <th scope="col">outcome</th>
+                    <th scope="col">person</th>
+                    <th scope="col">when</th>
+                    <th scope="col">session</th>
                   </tr>
                 </thead>
                 <tbody>

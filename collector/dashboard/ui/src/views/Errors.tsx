@@ -133,6 +133,7 @@ export function Errors({ onOpenIncident, range }: ErrorsProps) {
       </StatStrip>
       <div class="toolbar">
         <select
+          aria-label="Show errors, bug reports, or both"
           value={typeFilter}
           onChange={(e) =>
             setTypeFilter((e.target as HTMLSelectElement).value as typeof typeFilter)
@@ -159,15 +160,16 @@ export function Errors({ onOpenIncident, range }: ErrorsProps) {
       {fetchError && <div style="color:var(--red);margin-bottom:1rem">{fetchError}</div>}
       {loading && events.length === 0 && <SkeletonRows rows={4} />}
       <table>
+        <caption class="sr-only">Errors and bug reports, newest first</caption>
         <thead>
           <tr>
-            <th>time</th>
-            <th>type</th>
-            <th>user</th>
-            <th>message</th>
-            <th>source</th>
-            <th>session</th>
-            <th></th>
+            <th scope="col">time</th>
+            <th scope="col">type</th>
+            <th scope="col">user</th>
+            <th scope="col">message</th>
+            <th scope="col">source</th>
+            <th scope="col">session</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>

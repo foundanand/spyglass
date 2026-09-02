@@ -283,6 +283,16 @@ export function LiveFeed({ onOpenIncident, range, type, onTypeChange }: LiveFeed
           <Icon name="chevron-right" size={14} /> CSV
         </a>
       </div>
+      {/* The feed polls every 3s and rows appear silently. Politely announce how
+          many arrived rather than leaving a screen-reader user with a table
+          that changes under them with no signal. */}
+      <p class="sr-only" role="status" aria-live="polite">
+        {browsing
+          ? `Paused while browsing history. ${rows.length} events shown.`
+          : newIds.size > 0
+            ? `${newIds.size} new event${newIds.size === 1 ? "" : "s"}.`
+            : `${rows.length} events shown.`}
+      </p>
       {filterType === "" && (counts.network ?? 0) > 0 && (
         <p class="filter-note">
           Showing what people did. {counts.network!.toLocaleString()} network request
@@ -296,15 +306,16 @@ export function LiveFeed({ onOpenIncident, range, type, onTypeChange }: LiveFeed
       )}
       {error && <div style="color:var(--red);margin-bottom:1rem">{error}</div>}
       <table>
+        <caption class="sr-only">Event stream, newest first</caption>
         <thead>
           <tr>
-            <th>time</th>
-            <th>type</th>
-            <th>user</th>
-            <th>name</th>
-            <th>url</th>
-            <th>props</th>
-            <th></th>
+            <th scope="col">time</th>
+            <th scope="col">type</th>
+            <th scope="col">user</th>
+            <th scope="col">name</th>
+            <th scope="col">url</th>
+            <th scope="col">props</th>
+            <th scope="col"></th>
           </tr>
         </thead>
         <tbody>
