@@ -2,8 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { init } from "./core.js";
-import { registerBeacon } from "./beacon.js";
+import { startAll } from "./start.js";
 import { pageview } from "./capture.js";
 import type { SpyglassConfig } from "./types.js";
 
@@ -13,8 +12,11 @@ export interface SpyglassProviderProps {
 }
 
 /**
- * Wrap your root layout with this component to get automatic pageview tracking
- * on every app-router navigation.
+ * Wrap your layout with this component to start spyglass and get automatic
+ * pageview tracking on every app-router navigation.
+ *
+ * Mount it *inside* your auth gate, not at the root: `config.user.id` is
+ * required, and a provider above the login screen has no user to name.
  *
  * @example
  * // app/layout.tsx
@@ -25,8 +27,10 @@ export interface SpyglassProviderProps {
  */
 export function SpyglassProvider({ config, children }: SpyglassProviderProps) {
   useEffect(() => {
-    init(config);
-    registerBeacon();
+    // startAll, not init: the provider is the documented app-router setup, and
+    // it has to turn on everything init() does (errors, network, replay, the
+    // report widget) or those silently never run. See start.ts.
+    startAll(config);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -27,7 +27,21 @@ export interface SpyglassConfig {
   maskInputs?: "all" | "password" | "none";
   /** Show floating bug-report button. Default: true */
   reportWidget?: boolean;
+  /**
+   * How long a flow may stay open before it is treated as forgotten rather
+   * than slow (see flow.ts). Default: 30 minutes.
+   */
+  flowTimeoutMs?: number;
+  /**
+   * Ignore abandonments and failures shorter than this, which are component
+   * remounts rather than decisions (see constants.ts). Default: 100ms.
+   * Set to 0 to record every one.
+   */
+  minAbandonMs?: number;
 }
+
+/** How a timed flow ended. */
+export type FlowOutcome = "completed" | "abandoned" | "failed";
 
 /** Internal resolved config — all fields have defaults applied. */
 export interface ResolvedConfig extends Required<Omit<SpyglassConfig, "network">> {
@@ -40,7 +54,7 @@ export interface EventRecord {
   app: string;
   user_id: string;
   session_id: string;
-  type: "event" | "pageview" | "error" | "network" | "bug_report";
+  type: "event" | "pageview" | "error" | "network" | "bug_report" | "flow";
   name: string;
   url?: string;
   props?: Record<string, unknown>;

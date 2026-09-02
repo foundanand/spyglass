@@ -7,7 +7,7 @@ Zero external services.**
 PostHog, Highlight, and OpenReplay assume billion-event scale — ClickHouse,
 Kafka, Kubernetes, gigabytes of RAM. Most internal tools have 20–200 daily users
 and need none of that. spyglass is the telemetry stack for that world: it records
-*every* session continuously, with identified users, so "what happened when the
+_every_ session continuously, with identified users, so "what happened when the
 bug occurred" isn't a capture problem — it's a query over data already on disk.
 
 - **~5KB gzipped SDK.** rrweb loads lazily (~85KB gz), only when replay is on.
@@ -46,6 +46,10 @@ Config is one file — copy `spyglass.config.example.json` to
 }
 ```
 
+Any value may be written as `"env:NAME"` to read it from the environment
+instead — the app key and the dashboard password both support it, so the config
+file can live in version control with no credential in it.
+
 `replays_days`/`events_days` of `0` means keep forever. The dashboard password is
 optional (empty = open, for local dev); set it and the dashboard plus all query
 endpoints require HTTP Basic auth.
@@ -74,16 +78,20 @@ import { spyglass } from "@spyglass/sdk";
 spyglass.init({
   endpoint: "https://telemetry.internal.acme.dev",
   app: "inventory",
-  key: "sg_live_…",    // app key — must match the collector config
+  key: "sg_live_…", // app key — must match the collector config
   user: { id: "anand", name: "Anand" }, // identified by design
-  replay: true,        // default true — rrweb + console, lazy-loaded
-  network: true,       // default true — method, status, duration, sizes
+  replay: true, // default true — rrweb + console, lazy-loaded
+  network: true, // default true — method, status, duration, sizes
   maskInputs: "password",
-  reportWidget: true,  // floating bug-report button
+  reportWidget: true, // floating bug-report button
 });
 
 spyglass.capture("invoice_created", { amount: 1200 });
-spyglass.report("the totals look wrong");   // programmatic bug report
+spyglass.report("the totals look wrong"); // programmatic bug report
+
+// How long did it take? Time the span the user actually experiences.
+spyglass.startFlow("invoice.create"); // the form opened
+spyglass.endFlow("invoice.create", { items: 3 }); // it saved
 ```
 
 Next.js app-router pageviews wire up automatically:
@@ -91,9 +99,7 @@ Next.js app-router pageviews wire up automatically:
 ```tsx
 import { SpyglassProvider } from "@spyglass/sdk/next";
 
-<SpyglassProvider config={{ endpoint, app: "inventory", key, user }}>
-  {children}
-</SpyglassProvider>
+<SpyglassProvider config={{ endpoint, app: "inventory", key, user }}>{children}</SpyglassProvider>;
 ```
 
 That's it. Errors, network calls, pageviews, and replay flow in with no further
@@ -117,7 +123,7 @@ is empty:
 - **Identify when your user resolves.** `init()` requires `user.id`, but most
   apps fetch the session asynchronously. Two patterns that work: defer `init()`
   until your auth query settles, or init at login with what you have and call
-  `setUser()` when the profile arrives. Mount the provider *inside* your auth
+  `setUser()` when the profile arrives. Mount the provider _inside_ your auth
   gate and you also stop tracking login screens and public pages for free.
 
 - **Make it removable.** Read `endpoint`/`key` from env and skip `init()` when
@@ -134,14 +140,59 @@ is empty:
 
 ## What you get
 
-| Dashboard view | What it shows |
-| --- | --- |
-| **Live feed** | The event stream, filterable by user / type / app. |
-| **Timeline** | Pick a user → sessions → chronological breadcrumbs (pageviews, captures, network, errors). |
-| **Errors** | Every error and bug report, with stack traces; click through to the incident. |
-| **Replay** | Session player with seek, ⏩ skip-idle fast-forward (on by default), event markers on the timeline, and a console pane synced to playback. |
-| **Insights** | DAU, top events, top pages, errors-by-day, and a step funnel. |
-| **Incident** | The killer view: for any error or bug report, the slice `[ts−60s, ts+10s]` from that session — replay auto-cued to the moment, breadcrumb timeline, network waterfall, console, and the stack/comment on top. |
+| Dashboard view | What it shows                                                                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Live feed**  | The event stream, filterable by user / type / app.                                                                                                                                                            |
+| **Timeline**   | Pick a user → sessions → chronological breadcrumbs (pageviews, captures, network, errors).                                                                                                                    |
+| **Errors**     | Every error and bug report, with stack traces; click through to the incident.                                                                                                                                 |
+| **Replay**     | Session player with seek, ⏩ skip-idle fast-forward (on by default), event markers on the timeline, and a console pane synced to playback.                                                                    |
+| **Insights**   | DAU, top events, top pages, errors-by-day, a step funnel, and flow durations (p50/p90, abandon rate) grouped by user, day, or any event prop.                                                                 |
+| **Incident**   | The killer view: for any error or bug report, the slice `[ts−60s, ts+10s]` from that session — replay auto-cued to the moment, breadcrumb timeline, network waterfall, console, and the stack/comment on top. |
+
+### Flow timing
+
+Counts tell you an action happened; they cannot tell you what it costs the
+person doing it. Wrap one in `startFlow`/`endFlow` and the collector will report
+p50, p90, p95, mean and max over completed runs — plus how often people started
+the action and gave up:
+
+```ts
+// when the create-task form opens
+spyglass.startFlow("task.create", { entry: "keyboard" });
+// when the task exists
+spyglass.endFlow("task.create", { clients: 3 });
+// when the dialog is dismissed without saving (a no-op if it already ended)
+spyglass.cancelFlow("task.create", "dialog_dismissed");
+```
+
+Then ask one question four ways:
+
+```
+/v1/query/flows?name=task.create                     # how long does it take
+/v1/query/flows?name=task.create&group=user          # who is slow at it
+/v1/query/flows?name=task.create&group=day           # is it getting worse
+/v1/query/flows?name=task.create&group=prop:clients  # what makes it slow
+```
+
+Three things the design does on purpose, because they are the difference between
+a number you can act on and one you cannot:
+
+- **Durations cover completed runs only**, with the abandon rate reported next
+  to them. A fast median often just means the slow attempts gave up.
+- **A flow open longer than 30 minutes is dropped, not reported.** Someone left
+  the form open over lunch; that is not a four-hour task creation.
+  (`flowTimeoutMs`.)
+- **An "abandonment" under 100ms is ignored** — that is a component remounting,
+  not a decision. React StrictMode double-invokes effects in development, so
+  without this every start-on-mount flow reports a 0ms abandonment per page
+  visit. (`minAbandonMs`; completions are never filtered.)
+
+Open flows live in `sessionStorage`, so a flow survives navigation within the
+tab and dies with it. It also works before `init()`, which is how a login flow
+can start on the login page — where there is no user to attribute it to — and be
+closed by the dashboard once there is.
+
+---
 
 Replays reconstruct the DOM, not pixels. One consequence: if the recorded app
 serves its web fonts without CORS headers, the replay iframe falls back to
@@ -154,18 +205,19 @@ system fonts. Cosmetic only — layout and content are exact. Self-host fonts wi
 
 ### Collector endpoints
 
-| Route | Purpose |
-| --- | --- |
-| `POST /v1/events` | Batched JSON events → single-transaction insert (app-key auth). |
-| `POST /v1/replay?session=&seq=` | Gzipped rrweb chunk → disk (app-key auth). |
-| `GET /v1/query/events` | Filtered event stream (`user`, `type`, `app`, `from`, `to`, `limit`). |
-| `GET /v1/query/users` | Active users, last seen, session counts. |
-| `GET /v1/query/sessions` | Session list. |
-| `GET /v1/query/funnel?steps=a,b,c` | Sequential step funnel. |
-| `GET /v1/query/aggregates` | DAU, top events, top pages, errors-by-day. |
-| `GET /v1/sessions/:id/replay` | Chunk manifest + streaming chunk fetch. |
-| `GET /v1/incidents/:event_id` | Incident slice for an error/bug_report. |
-| `GET /` | Embedded dashboard. |
+| Route                              | Purpose                                                               |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| `POST /v1/events`                  | Batched JSON events → single-transaction insert (app-key auth).       |
+| `POST /v1/replay?session=&seq=`    | Gzipped rrweb chunk → disk (app-key auth).                            |
+| `GET /v1/query/events`             | Filtered event stream (`user`, `type`, `app`, `from`, `to`, `limit`). |
+| `GET /v1/query/users`              | Active users, last seen, session counts.                              |
+| `GET /v1/query/sessions`           | Session list.                                                         |
+| `GET /v1/query/funnel?steps=a,b,c` | Sequential step funnel.                                               |
+| `GET /v1/query/flows`              | Duration stats per flow (`name`, `group=user\|day\|prop:<key>`).      |
+| `GET /v1/query/aggregates`         | DAU, top events, top pages, errors-by-day.                            |
+| `GET /v1/sessions/:id/replay`      | Chunk manifest + streaming chunk fetch.                               |
+| `GET /v1/incidents/:event_id`      | Incident slice for an error/bug_report.                               |
+| `GET /`                            | Embedded dashboard.                                                   |
 
 Ingest endpoints (`/v1/events`, `/v1/replay`) authenticate with per-app keys.
 Everything else is gated by the dashboard password when one is set.
@@ -177,6 +229,13 @@ spyglass.init(config);
 spyglass.capture(name, props?);
 spyglass.setUser({ id, name?, email? });   // late identification
 spyglass.report(comment, extra?);          // programmatic bug report
+
+// Flow timing — how long an action takes, not just how often it happens.
+spyglass.startFlow(name, props?);
+spyglass.endFlow(name, props?);            // completed; returns elapsed ms
+spyglass.cancelFlow(name, reason?);        // the user gave up
+spyglass.failFlow(name, reason?);          // it broke; not the user's doing
+const f = spyglass.flow(name); f.end();    // handle form, for same-scope start/end
 ```
 
 ---
@@ -194,7 +253,7 @@ spyglass.report(comment, extra?);          // programmatic bug report
 ## Air-gapped / offline deployment
 
 spyglass is built to run inside a disconnected enclave. At runtime the **only**
-network traffic is *browser → collector*, and both live inside your network —
+network traffic is _browser → collector_, and both live inside your network —
 nothing ever leaves it.
 
 **What's guaranteed (and tested):**
@@ -213,7 +272,7 @@ which fails the build (and CI) if an outbound call or external asset slips in.
 **Moving it across the boundary:**
 
 - **Collector:** one static, CGo-free binary (`make release` → `darwin/linux ×
-  amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
+amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
   is nothing to install and no runtime dependency to resolve. The database is a
   single SQLite file, so backup and restore are `cp`.
 - **SDK:** not on npm — `pnpm pack` it to a tarball outside the enclave and
@@ -223,7 +282,7 @@ which fails the build (and CI) if an outbound call or external asset slips in.
   SDK and collector can be updated independently — no lockstep redeploy across
   the boundary.
 
-**The one thing to watch:** optional features that *would* egress — a Slack
+**The one thing to watch:** optional features that _would_ egress — a Slack
 webhook on new bug reports, or the auto-summary that POSTs an incident slice to
 an LLM — are **off by default and not yet implemented**. If you enable one, point
 it at an in-enclave endpoint (e.g. a local model), and note that the air-gap
@@ -254,7 +313,7 @@ make run        # build, then run against spyglass.config.json
 ```
 
 The dashboard is a Preact SPA embedded into the binary via `go:embed`; there is
-no Node on the server. SQLite runs in WAL mode as a library *inside* the binary —
+no Node on the server. SQLite runs in WAL mode as a library _inside_ the binary —
 the database is one file, backup is `cp`.
 
 ## License

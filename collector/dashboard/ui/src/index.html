@@ -32,6 +32,7 @@
       --c-error: #f87171;    --c-error-bg: rgba(239,68,68,.13);
       --c-network: #facc15;  --c-network-bg: rgba(234,179,8,.13);
       --c-bug: #c084fc;      --c-bug-bg: rgba(168,85,247,.14);
+      --c-flow: #22d3ee;     --c-flow-bg: rgba(34,211,238,.13);
 
       /* surfaces & interaction states */
       --surface-hover: #20242f;
@@ -177,6 +178,7 @@
     .badge-error    { background: var(--c-error-bg);    color: var(--c-error); }
     .badge-network  { background: var(--c-network-bg);  color: var(--c-network); }
     .badge-bug_report { background: var(--c-bug-bg);    color: var(--c-bug); }
+    .badge-flow     { background: var(--c-flow-bg);     color: var(--c-flow); }
 
     /* ---- empty / loading ---- */
     .empty { color: var(--muted); padding: 2rem 0.75rem; }
@@ -470,6 +472,16 @@
     .row-pageview td:first-child { border-left: 3px solid var(--c-pageview); }
     .row-event td:first-child { border-left: 3px solid var(--c-event); }
     .row-bug td:first-child, .row-bug_report td:first-child { border-left: 3px solid var(--c-bug); }
+    .row-flow td:first-child { border-left: 3px solid var(--c-flow); }
+
+    /* ---- flow durations (Insights) ---- */
+    .flow-table td, .flow-table th { padding: 0.34rem 0.6rem; text-align: right; white-space: nowrap; }
+    .flow-table td:first-child, .flow-table th:first-child { text-align: left; }
+    .flow-name { font-weight: 600; }
+    .flow-p50 { color: var(--c-flow); font-weight: 600; }
+    .flow-muted { color: var(--muted); }
+    /* An abandon rate is only worth reading when it is high enough to act on. */
+    .flow-abandon-warn { color: var(--c-error); font-weight: 600; }
 
     /* inline network / error detail */
     .network-detail { margin-left: 0.5rem; display: inline-flex; gap: 0.35rem; font-size: 0.85em; }

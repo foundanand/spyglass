@@ -61,7 +61,15 @@ describe("window error event", () => {
   it("emits an error event with message, source, line, col", () => {
     const err = new Error("boom");
     window.dispatchEvent(
-      Object.assign(new ErrorEvent("error", { message: "boom", filename: "app.js", lineno: 42, colno: 7, error: err }))
+      Object.assign(
+        new ErrorEvent("error", {
+          message: "boom",
+          filename: "app.js",
+          lineno: 42,
+          colno: 7,
+          error: err,
+        }),
+      ),
     );
     expect(_queueLength()).toBe(1);
     const e = lastBatch().events[0];
@@ -158,5 +166,29 @@ describe("idempotent start", () => {
     startErrorTracking(); // called again
     console.error("once");
     expect(_queueLength()).toBe(1); // not doubled
+  });
+});
+
+describe("console.error noise", () => {
+  it("ignores a styled devtools group", () => {
+    // tRPC's development logger formats every operation — successes included —
+    // as a %c-styled group and sends the whole thing to console.error.
+    console.error(
+      "%c << query #1 %cpermission.getMyPermissions%c %O",
+      "background-color:#3fb0d8;color:white",
+      "",
+      { elapsedMs: 4 },
+    );
+    expect(_queueLength()).toBe(0);
+  });
+
+  it("still captures an ordinary console.error", () => {
+    console.error("could not save the invoice");
+    expect(_queueLength()).toBe(1);
+  });
+
+  it("captures a message that merely contains %c", () => {
+    console.error("100%complete but broken");
+    expect(_queueLength()).toBe(1);
   });
 });

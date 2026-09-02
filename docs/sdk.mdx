@@ -41,17 +41,19 @@ spyglass.init({
 
 ### Config options
 
-| Option | Type | Default | Notes |
-|---|---|---|---|
-| `endpoint` | `string` | — | **Required.** Collector base URL. |
-| `app` | `string` | — | **Required.** App slug; must match a key in the collector config. |
-| `key` | `string` | — | **Required.** App key for ingest auth; must match `apps.<slug>.key`. |
-| `user` | `{ id, name?, email? }` | — | **Required** (`user.id`). All sessions are identified. |
-| `replay` | `boolean` | `true` | rrweb session replay + console capture. |
-| `autocapture` | `boolean` | `false` | Record all clicks + form changes. Lazy-loaded; zero bytes when off. |
-| `network` | `boolean \| { bodies }` | `true` | Capture fetch/XHR metadata. See [Network capture](#network-capture). |
-| `maskInputs` | `"all" \| "password" \| "none"` | `"password"` | Input masking in replays. |
-| `reportWidget` | `boolean` | `true` | Floating bug-report button. |
+| Option          | Type                            | Default            | Notes                                                                                  |
+| --------------- | ------------------------------- | ------------------ | -------------------------------------------------------------------------------------- |
+| `endpoint`      | `string`                        | —                  | **Required.** Collector base URL.                                                      |
+| `app`           | `string`                        | —                  | **Required.** App slug; must match a key in the collector config.                      |
+| `key`           | `string`                        | —                  | **Required.** App key for ingest auth; must match `apps.<slug>.key`.                   |
+| `user`          | `{ id, name?, email? }`         | —                  | **Required** (`user.id`). All sessions are identified.                                 |
+| `replay`        | `boolean`                       | `true`             | rrweb session replay + console capture.                                                |
+| `autocapture`   | `boolean`                       | `false`            | Record all clicks + form changes. Lazy-loaded; zero bytes when off.                    |
+| `network`       | `boolean \| { bodies }`         | `true`             | Capture fetch/XHR metadata. See [Network capture](#network-capture).                   |
+| `maskInputs`    | `"all" \| "password" \| "none"` | `"password"`       | Input masking in replays.                                                              |
+| `reportWidget`  | `boolean`                       | `true`             | Floating bug-report button.                                                            |
+| `flowTimeoutMs` | `number`                        | `1800000` (30 min) | A flow open longer than this is forgotten, not slow — see [Flow timing](#flow-timing). |
+| `minAbandonMs`  | `number`                        | `100`              | Abandonments faster than this are remounts, not decisions. `0` records every one.      |
 
 ---
 
@@ -61,7 +63,7 @@ Record a custom event. `props` is any JSON-serializable object.
 
 ```ts
 spyglass.capture("invoice_created", { amount: 1200, currency: "USD" });
-spyglass.capture("filter_applied");   // props optional
+spyglass.capture("filter_applied"); // props optional
 ```
 
 Event names are the building blocks of [funnels and aggregates](/docs/dashboard#insights),
@@ -91,6 +93,78 @@ spyglass.report("totals look wrong on the invoice screen", { severity: "high" })
 
 Every bug report becomes an [incident](/docs/dashboard#incident-view): the replay
 slice around the moment it was filed, cued and ready to watch.
+
+---
+
+## Flow timing
+
+`capture` answers _how often_. A flow answers _how long_: the span between a
+user committing to an action and finishing, or giving up on, it.
+
+```ts
+spyglass.startFlow("task.create", { entry: "keyboard" }); // the form opened
+spyglass.endFlow("task.create", { clients: 3 }); // the task exists
+```
+
+`endFlow` returns the elapsed milliseconds (or `null` if the flow was never
+started, or had timed out) and emits a single `flow` event carrying
+`duration_ms`, an `outcome`, and the start and end props merged. Query it with
+[`GET /v1/query/flows`](/api#get-v1queryflows).
+
+| Call                                | Outcome     | Use for                                                             |
+| ----------------------------------- | ----------- | ------------------------------------------------------------------- |
+| `endFlow(name, props?)`             | `completed` | It worked.                                                          |
+| `cancelFlow(name, reason?, props?)` | `abandoned` | The user gave up — dialog dismissed, navigated away mid-form.       |
+| `failFlow(name, reason?, props?)`   | `failed`    | It broke. A failed save, a server rejection — not the user's doing. |
+
+Keeping the last two apart is what stops "slow because it is confusing" and
+"slow because it errored" averaging into one uninformative number.
+
+```ts
+// Handle form, for when start and end sit in the same scope:
+const f = spyglass.flow("invoice.create");
+f.end({ items: 3 }); // or f.cancel("dismissed") / f.fail("server_error")
+
+spyglass.isFlowActive("task.create"); // → boolean
+spyglass.activeFlows(); // → string[]
+```
+
+### What the design decides for you
+
+- **`startFlow` on an open flow restarts its clock.** A user who reopens the
+  form is starting over; the abandoned first attempt should not be charged to
+  the second.
+- **Ending a flow that is not open is a no-op.** That is what makes the common
+  pattern work with no coordination: end the flow on success, cancel it when the
+  dialog closes, and the cancel that follows a successful save emits nothing.
+- **A flow open longer than `flowTimeoutMs` is dropped, not reported.** Someone
+  left the form open over lunch. Reporting a four-hour "task creation" would
+  poison every percentile it lands in.
+- **An abandonment faster than `minAbandonMs` is ignored.** React StrictMode
+  runs effects mount → cleanup → mount in development, so the natural pattern —
+  start on mount, cancel on cleanup — would emit a 0ms abandonment on every page
+  visit and peg that flow's abandon rate near 50%. Completions are never
+  filtered: an action that genuinely finishes in 40ms is a real measurement.
+
+### Flows across pages
+
+Open flows live in `sessionStorage`, so a flow survives navigation within the
+tab and dies with it — a wizard spanning three pages is still one flow.
+
+`startFlow` also works before `init()`, because it only writes to storage. That
+is how you time a login: start the flow on the login page, where there is no
+user to attribute it to, and close it from inside your auth gate once spyglass
+has been initialised. The event is attributed to the user who arrived.
+
+```tsx
+// login page
+useEffect(() => {
+  spyglass.startFlow("auth.login");
+}, []);
+
+// inside the authenticated layout, right after spyglass.init(...)
+spyglass.endFlow("auth.login");
+```
 
 ---
 
@@ -148,18 +222,28 @@ your app's styles and the widget's never bleed into each other. Turn it off with
 
 ## Next.js
 
-`@spyglass/sdk/next` exports a provider that calls `init()` and wires app-router
+`@spyglass/sdk/next` exports a provider that starts everything `init()` does —
+error tracking, network timing, replay, the report widget — and wires app-router
 pageviews through `usePathname` / `useSearchParams`:
 
 ```tsx title="app/layout.tsx"
 import { SpyglassProvider } from "@spyglass/sdk/next";
 
-<SpyglassProvider config={{ endpoint, app, key, user }}>
-  {children}
-</SpyglassProvider>
+<SpyglassProvider config={{ endpoint, app, key, user }}>{children}</SpyglassProvider>;
 ```
 
 The provider takes the exact same config object as `init()`.
+
+**Mount it inside your auth gate, not at the root.** `config.user.id` is
+required and a provider above the login screen has no user to name; mounting it
+below the gate also stops you recording the one screen where a password is
+typed, which beats masking it.
+
+If you are linking the SDK from a sibling checkout rather than installing it,
+import only `@spyglass/sdk` and write your own ~30-line provider. The `/next`
+entry imports `react`, which a bundler resolves through the symlink to the SDK's
+own copy — two Reacts, and hooks stop working. The core entry has no external
+imports at all.
 
 ---
 

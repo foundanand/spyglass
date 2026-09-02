@@ -62,13 +62,13 @@ All query endpoints return JSON and are gated by the dashboard password when set
 
 Filtered event stream, newest first.
 
-| Param | Meaning |
-|---|---|
-| `user` | Filter by user ID. |
-| `type` | Filter by event type. |
-| `app` | Filter by app slug. |
-| `from`, `to` | Unix-ms time bounds. |
-| `limit` | Max rows (default 100, capped at 500). |
+| Param        | Meaning                                |
+| ------------ | -------------------------------------- |
+| `user`       | Filter by user ID.                     |
+| `type`       | Filter by event type.                  |
+| `app`        | Filter by app slug.                    |
+| `from`, `to` | Unix-ms time bounds.                   |
+| `limit`      | Max rows (default 100, capped at 500). |
 
 ```json title="response"
 { "events": [ { "id": 1, "ts": 1718…, "type": "error", "name": "boom", "…": "…" } ] }
@@ -89,13 +89,71 @@ Session list, newest first. `?limit=` (default 100, max 500).
 ### `GET /v1/query/funnel?steps=a,b,c`
 
 Sequential funnel over event **names**. Each user's events are walked in time
-order; the count for step *i* is how many users reached at least that step in
+order; the count for step _i_ is how many users reached at least that step in
 order. Needs **two or more** steps (`400` otherwise). Optional `app`, `from`,
 `to`.
 
 ```json title="response for steps=view,cart,checkout"
-{ "steps": [ { "name": "view", "count": 30 }, { "name": "cart", "count": 12 }, { "name": "checkout", "count": 5 } ] }
+{
+  "steps": [
+    { "name": "view", "count": 30 },
+    { "name": "cart", "count": 12 },
+    { "name": "checkout", "count": 5 }
+  ]
+}
 ```
+
+### `GET /v1/query/flows`
+
+Duration statistics for timed flows (see the SDK's `startFlow`/`endFlow`).
+Optional `app`, `name` (one flow; omit for one row per flow), `from`, `to`,
+`limit` (default 50), and `group`:
+
+| `group`      | Rows are                         | Answers                 |
+| ------------ | -------------------------------- | ----------------------- |
+| _(omitted)_  | one per flow                     | how long does this take |
+| `user`       | one per user id                  | who is slow at it       |
+| `day`        | one per `YYYY-MM-DD`             | is it getting worse     |
+| `prop:<key>` | one per value of that event prop | what makes it slow      |
+
+Anything else is a `400`, as is a bare `prop:` with no key. The prop key is
+bound as a JSON path — it never reaches the SQL text.
+
+```json title="response for name=task.create&group=user"
+{
+  "flows": [
+    {
+      "name": "task.create",
+      "group": "PARV0004",
+      "completions": 12,
+      "abandons": 3,
+      "failures": 0,
+      "abandon_rate": 0.2,
+      "p50_ms": 41000,
+      "p90_ms": 96000,
+      "p95_ms": 110000,
+      "mean_ms": 52000,
+      "min_ms": 18000,
+      "max_ms": 130000,
+      "total_ms": 624000
+    }
+  ],
+  "names": [{ "name": "task.create", "count": 15 }]
+}
+```
+
+Two things to read carefully:
+
+- **The durations describe completed runs only.** A run the user abandoned says
+  nothing about how long the action takes — which is why `abandon_rate` sits
+  next to them. A fast median often just means the slow attempts gave up.
+- **`names` lists every flow in the window**, not just the filtered one, so a
+  dashboard can populate a flow picker in the same round trip and without
+  knowing in advance what the app it is watching emits.
+
+Percentiles are nearest-rank, so every figure is a duration some run actually
+took. Rows are busiest-first. `flows` and `names` are always arrays, never
+`null`.
 
 ### `GET /v1/query/aggregates`
 
@@ -104,10 +162,10 @@ DAU, top events, top pages, and errors-by-day in one payload. Optional `app`,
 
 ```json title="response"
 {
-  "dau":           [ { "day": "2026-06-14", "count": 2 } ],
-  "top_events":    [ { "name": "view", "count": 2 } ],
-  "top_pages":     [ { "name": "/home", "count": 1 } ],
-  "errors_by_day": [ { "day": "2026-06-14", "count": 1 } ]
+  "dau": [{ "day": "2026-06-14", "count": 2 }],
+  "top_events": [{ "name": "view", "count": 2 }],
+  "top_pages": [{ "name": "/home", "count": 1 }],
+  "errors_by_day": [{ "day": "2026-06-14", "count": 1 }]
 }
 ```
 

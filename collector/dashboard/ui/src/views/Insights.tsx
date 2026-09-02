@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon.js";
 import { Sparkline } from "../components/Sparkline.js";
 import { StatTile, StatStrip } from "../components/StatTile.js";
 import { SkeletonRows } from "../components/Skeleton.js";
+import { Flows } from "./Flows.js";
 
 interface DayCount {
   day: string;
@@ -34,7 +35,9 @@ function Bars({ rows, empty }: { rows: { label: string; count: number }[]; empty
     <div class="bars">
       {rows.map((r, i) => (
         <div key={i} class="bar-row">
-          <span class="bar-label" title={r.label}>{r.label}</span>
+          <span class="bar-label" title={r.label}>
+            {r.label}
+          </span>
           <span class="bar-track">
             <span class="bar-fill" style={`width:${Math.round((r.count / max) * 100)}%`} />
           </span>
@@ -52,7 +55,10 @@ function FunnelBuilder() {
   const [loading, setLoading] = useState(false);
 
   async function run() {
-    const names = input.split(",").map((s) => s.trim()).filter(Boolean);
+    const names = input
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     if (names.length < 2) {
       setErr("Enter at least 2 comma-separated event names");
       return;
@@ -62,7 +68,7 @@ function FunnelBuilder() {
     try {
       const res = await fetch(`/v1/query/funnel?steps=${encodeURIComponent(names.join(","))}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json() as { steps: FunnelStep[] };
+      const d = (await res.json()) as { steps: FunnelStep[] };
       setSteps(d.steps ?? []);
     } catch (e) {
       setErr(String(e));
@@ -75,16 +81,22 @@ function FunnelBuilder() {
 
   return (
     <section class="insight-card">
-      <h3><Icon name="chevron-right" size={14} /> Funnel</h3>
+      <h3>
+        <Icon name="chevron-right" size={14} /> Funnel
+      </h3>
       <div class="toolbar">
         <input
           style="flex:1;min-width:240px"
           placeholder="step1, step2, step3 (event names)"
           value={input}
           onInput={(e) => setInput((e.target as HTMLInputElement).value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void run(); }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") void run();
+          }}
         />
-        <button onClick={run}><Icon name="chevron-right" size={14} /> Run funnel</button>
+        <button onClick={run}>
+          <Icon name="chevron-right" size={14} /> Run funnel
+        </button>
         {loading && <span class="ts">Loading…</span>}
       </div>
       {err && <div style="color:var(--red);margin-bottom:0.5rem">{err}</div>}
@@ -92,14 +104,22 @@ function FunnelBuilder() {
         <div class="funnel">
           {steps.map((s, i) => {
             const pct = Math.round((s.count / top) * 100);
-            const convPct = i === 0 ? 100 : steps[i - 1].count > 0
-              ? Math.round((s.count / steps[i - 1].count) * 100)
-              : 0;
+            const convPct =
+              i === 0
+                ? 100
+                : steps[i - 1].count > 0
+                  ? Math.round((s.count / steps[i - 1].count) * 100)
+                  : 0;
             return (
               <div key={i} class="funnel-step">
                 <div class="funnel-head">
-                  <span class="funnel-name">{i + 1}. {s.name}</span>
-                  <span class="funnel-count">{s.count}{i > 0 && <span class="funnel-conv"> · {convPct}%</span>}</span>
+                  <span class="funnel-name">
+                    {i + 1}. {s.name}
+                  </span>
+                  <span class="funnel-count">
+                    {s.count}
+                    {i > 0 && <span class="funnel-conv"> · {convPct}%</span>}
+                  </span>
                 </div>
                 <div class="funnel-bar-track">
                   <div class="funnel-bar-fill" style={`width:${pct}%`} />
@@ -124,7 +144,7 @@ export function Insights() {
     try {
       const res = await fetch("/v1/query/aggregates");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setAgg(await res.json() as Aggregates);
+      setAgg((await res.json()) as Aggregates);
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -132,7 +152,9 @@ export function Insights() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   // DAU / errors_by_day arrive ORDER BY day ASC (oldest→newest), so the last
   // element is the most recent day and the count arrays are already in
@@ -156,7 +178,9 @@ export function Insights() {
       </StatStrip>
 
       <div class="toolbar">
-        <button onClick={load}><Icon name="refresh" size={14} /> Refresh</button>
+        <button onClick={load}>
+          <Icon name="refresh" size={14} /> Refresh
+        </button>
         {loading && <span class="ts">Loading…</span>}
       </div>
       {err && <div style="color:var(--red);margin-bottom:1rem">{err}</div>}
@@ -168,7 +192,9 @@ export function Insights() {
       ) : (
         <div class="insight-grid">
           <section class="insight-card">
-            <h3><Icon name="user" size={14} /> Daily active users</h3>
+            <h3>
+              <Icon name="user" size={14} /> Daily active users
+            </h3>
             <div class="card-spark">
               <Sparkline values={dauCounts} width={280} height={40} color="var(--accent)" />
             </div>
@@ -179,7 +205,9 @@ export function Insights() {
           </section>
 
           <section class="insight-card">
-            <h3><Icon name="error" size={14} /> Errors by day</h3>
+            <h3>
+              <Icon name="error" size={14} /> Errors by day
+            </h3>
             <div class="card-spark">
               <Sparkline values={errorCounts} width={280} height={40} color="var(--c-error)" />
             </div>
@@ -190,7 +218,9 @@ export function Insights() {
           </section>
 
           <section class="insight-card">
-            <h3><Icon name="chevron-right" size={14} /> Top events</h3>
+            <h3>
+              <Icon name="chevron-right" size={14} /> Top events
+            </h3>
             <Bars
               rows={(agg?.top_events ?? []).map((n) => ({ label: n.name, count: n.count }))}
               empty="no captured events"
@@ -198,7 +228,9 @@ export function Insights() {
           </section>
 
           <section class="insight-card">
-            <h3><Icon name="page" size={14} /> Top pages</h3>
+            <h3>
+              <Icon name="page" size={14} /> Top pages
+            </h3>
             <Bars
               rows={(agg?.top_pages ?? []).map((n) => ({ label: n.name, count: n.count }))}
               empty="no pageviews"
@@ -206,6 +238,8 @@ export function Insights() {
           </section>
         </div>
       )}
+
+      <Flows />
 
       <FunnelBuilder />
     </div>

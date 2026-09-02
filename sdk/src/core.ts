@@ -1,3 +1,4 @@
+import { DEFAULT_FLOW_TIMEOUT_MS, DEFAULT_MIN_ABANDON_MS } from "./constants.js";
 import type { ResolvedConfig, SpyglassConfig, UserConfig } from "./types.js";
 
 let _config: ResolvedConfig | null = null;
@@ -15,6 +16,8 @@ export function init(config: SpyglassConfig): void {
     network: true,
     maskInputs: "password",
     reportWidget: true,
+    flowTimeoutMs: DEFAULT_FLOW_TIMEOUT_MS,
+    minAbandonMs: DEFAULT_MIN_ABANDON_MS,
     ...config,
   };
 }

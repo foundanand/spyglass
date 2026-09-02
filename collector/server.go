@@ -43,6 +43,7 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("GET /v1/query/users", gate(query.NewUsersHandler(st)))
 	mux.Handle("GET /v1/query/sessions", gate(query.NewSessionsHandler(st)))
 	mux.Handle("GET /v1/query/funnel", gate(query.NewFunnelHandler(st)))
+	mux.Handle("GET /v1/query/flows", gate(query.NewFlowsHandler(st)))
 	mux.Handle("GET /v1/query/aggregates", gate(query.NewAggregatesHandler(st)))
 	mux.Handle("GET /v1/sessions/", gate(replayHandler))
 	mux.Handle("GET /v1/incidents/", gate(incidentHandler))

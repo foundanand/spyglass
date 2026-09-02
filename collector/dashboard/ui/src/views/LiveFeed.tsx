@@ -26,6 +26,7 @@ const TYPE_BADGES: Record<string, string> = {
   error: "badge-error",
   network: "badge-network",
   bug_report: "badge-bug_report",
+  flow: "badge-flow",
 };
 
 const SEG_OPTIONS: { value: string; label: string; color?: string }[] = [
@@ -35,13 +36,19 @@ const SEG_OPTIONS: { value: string; label: string; color?: string }[] = [
   { value: "error", label: "error", color: "var(--c-error)" },
   { value: "network", label: "network", color: "var(--c-network)" },
   { value: "bug_report", label: "report", color: "var(--c-bug)" },
+  { value: "flow", label: "flow", color: "var(--c-flow)" },
 ];
 
 // number of table columns (time, type, user, name, url, props, chevron)
 const COL_COUNT = 7;
 
 function fmtTs(ms: number) {
-  return new Date(ms).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 // Bucket events into per-minute counts for a compact sparkline.
@@ -52,9 +59,7 @@ function minuteBuckets(events: Event[]): number[] {
     const m = Math.floor(e.ts / 60000);
     buckets.set(m, (buckets.get(m) ?? 0) + 1);
   }
-  return [...buckets.keys()]
-    .sort((a, b) => a - b)
-    .map((k) => buckets.get(k) ?? 0);
+  return [...buckets.keys()].sort((a, b) => a - b).map((k) => buckets.get(k) ?? 0);
 }
 
 export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
@@ -80,7 +85,7 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
 
         const res = await fetch(`/v1/query/events?${params}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json() as { events: Event[] };
+        const data = (await res.json()) as { events: Event[] };
         if (!cancelled) {
           const prevTop = lastIdRef.current;
           const list = data.events ?? [];
@@ -106,7 +111,10 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
 
     poll();
     const timer = setInterval(poll, 3000);
-    return () => { cancelled = true; clearInterval(timer); };
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, [filterUser, filterType, filterApp]);
 
   const isIncidentable = (type: string) => type === "error" || type === "bug_report";
@@ -119,9 +127,13 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
     <div>
       <h2>
         Live feed{" "}
-        {error
-          ? <span class="muted">· paused</span>
-          : <span class="live-tag"><span class="live-dot" /> live</span>}
+        {error ? (
+          <span class="muted">· paused</span>
+        ) : (
+          <span class="live-tag">
+            <span class="live-dot" /> live
+          </span>
+        )}
       </h2>
 
       <StatStrip>
@@ -180,10 +192,9 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
           )}
           {events.map((e) => {
             const clickable = isIncidentable(e.type);
-            const cls = [
-              clickable ? "row-clickable" : "",
-              newIds.has(e.id) ? "row-new" : "",
-            ].filter(Boolean).join(" ");
+            const cls = [clickable ? "row-clickable" : "", newIds.has(e.id) ? "row-new" : ""]
+              .filter(Boolean)
+              .join(" ");
             return (
               <tr
                 key={e.id}
@@ -192,7 +203,9 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
                 title={clickable ? "Open incident view" : undefined}
               >
                 <td class="ts">{fmtTs(e.ts)}</td>
-                <td><span class={`badge ${TYPE_BADGES[e.type] ?? "badge-event"}`}>{e.type}</span></td>
+                <td>
+                  <span class={`badge ${TYPE_BADGES[e.type] ?? "badge-event"}`}>{e.type}</span>
+                </td>
                 <td>
                   <span style="display:flex;align-items:center;gap:6px">
                     <Avatar id={e.user_id} size={18} />
@@ -201,10 +214,16 @@ export function LiveFeed({ onOpenIncident }: LiveFeedProps) {
                 </td>
                 <td>{e.name}</td>
                 <td class="muted">{e.url ?? ""}</td>
-                <td class="props"><PropsChips props={e.props} max={3} /></td>
-                {clickable
-                  ? <td class="row-chevron"><Icon name="chevron-right" /></td>
-                  : <td class="row-chevron" />}
+                <td class="props">
+                  <PropsChips props={e.props} max={3} />
+                </td>
+                {clickable ? (
+                  <td class="row-chevron">
+                    <Icon name="chevron-right" />
+                  </td>
+                ) : (
+                  <td class="row-chevron" />
+                )}
               </tr>
             );
           })}
