@@ -6,6 +6,6 @@
   "depends_on": ["p4-incident-slice"],
   "src_files": ["collector/ingest/notify.go"],
   "exit_check": "When configured, a new bug_report POSTs a link to the incident to a Slack webhook; off by default",
-  "refs": "§13.4",
-  "status": "todo"
+  "refs": "\u00a713.4",
+  "status": "done"
 }

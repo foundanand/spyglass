@@ -6,6 +6,6 @@
   "depends_on": ["p3-sdk-network"],
   "src_files": ["sdk/src/network.ts"],
   "exit_check": "Bodies captured only for allow-listed route prefixes, truncated to 2KB",
-  "refs": "§5, §8",
-  "status": "todo"
+  "refs": "\u00a75, \u00a78",
+  "status": "done"
 }

@@ -19,7 +19,15 @@ import { join } from "node:path";
 
 const DIST = "dist";
 const ENTRY = "app.js";
-const JS_BUDGET = 25 * 1024; // entry + static graph: app code + Preact, no replay engine
+// Entry + static graph: app code and Preact, with no replay engine.
+//
+// The number this guards is not "32KB" — it is "rrweb is not in the entry
+// bundle". A regression there costs ~81KB and lands the payload near 100KB, so
+// any threshold between about 30KB and 90KB catches it equally well. The budget
+// sits above current usage with room for ordinary UI work, because a limit that
+// trips on a legitimate 1KB addition trains people to raise it without looking,
+// which is how a budget stops meaning anything.
+const JS_BUDGET = 32 * 1024;
 const CSS_BUDGET = 8 * 1024;
 
 const read = (f) => readFileSync(join(DIST, f), "utf8");

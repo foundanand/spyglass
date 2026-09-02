@@ -1,8 +1,28 @@
-# Tasks
+# Tasks — historical
+
+> **This folder is not a work queue.** It records the _original_ build
+> breakdown. The live backlog is [`todo/`](../todo/) — start there.
 
 The build, broken into self-contained units of work — each sized so a smaller
-model (or a parallel run) can pick up exactly one folder and complete it without
-needing the whole picture in context.
+model (or a parallel run) could pick up exactly one folder and complete it
+without needing the whole picture in context.
+
+The briefs are kept because they hold the design intent behind what was built.
+The statuses were wrong for a long time: seventeen tasks sat at `todo` for
+features that had demonstrably shipped, which is worse than having no status
+field at all — anyone reading it to decide what to work on would have concluded
+that error tracking and the incident view needed building, and started
+rebuilding them.
+
+They now reflect reality. Every task is `done` except two, which are `wontfix`
+and say why in a `resolution` field:
+
+| Task                 | Resolution                                                             |
+| -------------------- | ---------------------------------------------------------------------- |
+| `p4-sdk-autocapture` | Cut, not deferred — replay already captures interactions visually.     |
+| `p5-sdk-publish`     | Reversed — the SDK is not on npm; distribution is `scripts/vendor.sh`. |
+
+Nothing reads `manifest.json` programmatically; it is documentation.
 
 ## Layout
 
@@ -14,9 +34,9 @@ tasks/
     metadata.json          # structured fields (phase, files, deps, exit check)
 ```
 
-`manifest.json` is the source of truth for ordering and dependencies; each
-`<task-id>/` folder is the hand-off package given to whoever (or whatever) does
-the work.
+`manifest.json` indexed ordering and dependencies while the build was running;
+each `<task-id>/` folder was the hand-off package. Both are now a record of how
+the thing was built, not instructions for building it.
 
 ## Per-task conventions
 

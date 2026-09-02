@@ -5,7 +5,7 @@
   "title": "Error list + network rows",
   "depends_on": ["p3-dashboard-timeline"],
   "src_files": ["collector/dashboard/ui/views/Errors.tsx"],
-  "exit_check": "Throw in dev app → error appears with stack, linked to its session — PHASE 3 EXIT",
-  "refs": "§7.2",
-  "status": "todo"
+  "exit_check": "Throw in dev app \u2192 error appears with stack, linked to its session \u2014 PHASE 3 EXIT",
+  "refs": "\u00a77.2",
+  "status": "done"
 }

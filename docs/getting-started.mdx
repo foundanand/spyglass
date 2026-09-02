@@ -125,16 +125,44 @@ See the [SDK reference](/docs/sdk) for the full API and every config option.
 
 ---
 
-## 3. See your data
+## 3. Allow the collector in your CSP
+
+If your app ships a Content-Security-Policy, add the collector's origin to
+`connect-src`:
+
+```
+connect-src 'self' http://localhost:7474;
+```
+
+<Callout type="warn">
+  This is the single most common reason a correct-looking install shows no data. A `connect-src`
+  that omits the collector makes the browser block every POST **silently** — no console error, and
+  no failed request your app can see.
+</Callout>
+
+## 4. See your data
 
 Open [http://localhost:7474](http://localhost:7474) (log in with the dashboard
-password if you set one). Click around your app, then:
+password if you set one).
 
-- **Live feed** — your events appear within ~5 seconds.
-- **Replay** — watch the session you just recorded, with console logs.
-- **Errors** — throw something in your app; it shows up with a stack trace.
+Until the first event arrives, the dashboard shows a **setup panel** instead of
+empty tables: it confirms the collector is running, gives you the `init` snippet
+pre-filled with this collector's own address and app slug, and repeats the CSP
+line with the right origin. It moves on by itself the moment an event lands — no
+reload.
+
+Click around your app, then:
+
+- **Home** — active users, new error types, and any flow that got slower,
+  each against the previous period.
+- **Explore** — your events appear within ~5 seconds.
+- **Sessions** — watch the session you just recorded, with console logs.
+- **Issues** — throw something in your app; it shows up with a stack trace.
   Click it to open the **incident view** — the replay auto-cued to the exact
   moment, with the breadcrumb timeline, network waterfall, and console alongside.
+
+If nothing appears, the collector's log is the next place to look: a wrong app
+slug or key is rejected with `401`, and a disallowed origin with `403`.
 
 That's the whole loop. From here:
 

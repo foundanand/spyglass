@@ -1,6 +1,6 @@
 {
   "schema": "spyglass-build/v0",
-  "note": "Build broken into self-contained tasks, grouped by the phases in CLAUDE.md \u00a710. Each task has its own folder (task.md + metadata.json) and is sized for a smaller model or a parallel run. Respect depends_on ordering. Do not start phase N+1 with phase N broken.",
+  "note": "HISTORICAL. This folder records the original build breakdown; it is not a work queue. The live backlog is todo/. Statuses here reflect reality as of the backlog sweep recorded in changelog/006-016. Task briefs are kept because they hold the design intent behind what was built.",
   "phases": {
     "0": "Scaffold \u2014 pnpm workspace, Go module, SDK package + esbuild, example app, config",
     "1": "Events core (the spine) \u2014 collector ingest + SQLite + SDK basics + live-feed dashboard",
@@ -260,7 +260,7 @@
       "title": "Error handlers + dedup",
       "depends_on": ["p1-sdk-capture"],
       "exit_check": "onerror/unhandledrejection/console.error captured as error events, deduped within 5s; vitest",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p3-sdk-network",
@@ -269,7 +269,7 @@
       "title": "fetch + XHR interception (metadata)",
       "depends_on": ["p1-sdk-capture"],
       "exit_check": "fetch/XHR produce network events with method/url/status/duration/sizes; auth headers never recorded",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p3-sdk-network-bodies",
@@ -278,7 +278,7 @@
       "title": "Opt-in body capture (allow-list)",
       "depends_on": ["p3-sdk-network"],
       "exit_check": "Bodies captured only for allow-listed route prefixes, truncated to 2KB",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p3-dashboard-timeline",
@@ -287,7 +287,7 @@
       "title": "User timeline view",
       "depends_on": ["p1-dashboard-shell", "p1-query-events"],
       "exit_check": "Pick user \u2192 sessions \u2192 chronological breadcrumbs (pageviews, captures, network, errors)",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p3-dashboard-errors",
@@ -296,7 +296,7 @@
       "title": "Error list + network rows",
       "depends_on": ["p3-dashboard-timeline"],
       "exit_check": "Throw in dev app \u2192 error appears with stack, linked to its session \u2014 PHASE 3 EXIT",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p4-sdk-report-widget",
@@ -305,7 +305,7 @@
       "title": "Bug-report widget (Shadow DOM)",
       "depends_on": ["p1-sdk-capture"],
       "exit_check": "Floating button \u2192 comment box \u2192 emits bug_report event; Shadow DOM, no style bleed",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p4-sdk-report-api",
@@ -314,7 +314,7 @@
       "title": "spyglass.report() programmatic",
       "depends_on": ["p1-sdk-capture"],
       "exit_check": "report('msg') emits a bug_report event without the widget UI; vitest",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p4-sdk-autocapture",
@@ -323,7 +323,8 @@
       "title": "Opt-in autocapture (click + change)",
       "depends_on": ["p1-sdk-capture"],
       "exit_check": "autocapture:true lazy-loads a module recording clicks + form changes; zero bytes when off",
-      "status": "todo"
+      "status": "wontfix",
+      "resolution": "Cut, not deferred. Replay already captures every interaction visually and named events carry meaning; see changelog/006."
     },
     {
       "id": "p4-incident-slice",
@@ -332,7 +333,7 @@
       "title": "GET /v1/incidents/:event_id (slice assembly)",
       "depends_on": ["p1-query-events", "p2-replay-manifest"],
       "exit_check": "For an error/bug_report event, assemble [ts\u221260s, ts+10s] slice: events + replay cue + network + console refs",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p4-dashboard-incident",
@@ -341,7 +342,7 @@
       "title": "Incident view (the killer page)",
       "depends_on": ["p2-dashboard-player", "p4-incident-slice", "p3-dashboard-errors"],
       "exit_check": "Click report \u2192 open incident \u2192 replay cued to that exact moment \u2014 PHASE 4 EXIT",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-funnel-query",
@@ -350,7 +351,7 @@
       "title": "GET /v1/query/funnel",
       "depends_on": ["p1-store-open"],
       "exit_check": "?steps=a,b,c returns a simple SQL step funnel; table-driven test",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-dashboard-aggregates",
@@ -359,7 +360,7 @@
       "title": "Aggregates view (DAU, top events/pages, errors)",
       "depends_on": ["p1-dashboard-shell", "p1-query-events"],
       "exit_check": "DAU, top events, top pages, error counts by day via GROUP BY",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-dashboard-auth",
@@ -368,7 +369,7 @@
       "title": "Dashboard shared-password auth",
       "depends_on": ["p1-http-server", "p1-dashboard-shell"],
       "exit_check": "Dashboard + query routes gated by the single shared password (auth.dashboard_password)",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-packaging",
@@ -377,7 +378,7 @@
       "title": "Packaging: cross-compile + npx wrapper + Docker",
       "depends_on": ["p1-http-server"],
       "exit_check": "Static binaries for darwin/linux amd64+arm64; npx/install path; Docker example",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-docs-readme",
@@ -386,7 +387,7 @@
       "title": "README + docs MDX + MIT license",
       "depends_on": [],
       "exit_check": "README in dynamoip voice; docs/ MDX expanded; MIT license present",
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "p5-sdk-publish",
@@ -400,7 +401,8 @@
         "p4-sdk-report-widget"
       ],
       "exit_check": "Core \u22645KB gz (rrweb lazy); package publishes to npm",
-      "status": "todo"
+      "status": "wontfix",
+      "resolution": "Reversed. The SDK is deliberately not on npm (GPL, self-hosted, air-gap); distribution is scripts/vendor.sh \u2014 see changelog/016."
     },
     {
       "id": "p5-slack-webhook",
@@ -409,7 +411,7 @@
       "title": "Optional Slack webhook on bug_report",
       "depends_on": ["p4-incident-slice"],
       "exit_check": "When configured, a new bug_report POSTs a link to the incident to a Slack webhook; off by default",
-      "status": "todo"
+      "status": "done"
     }
   ]
 }

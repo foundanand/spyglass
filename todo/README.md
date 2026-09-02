@@ -31,14 +31,11 @@ Check it before assuming it is still true.
 | #                                                 | Priority | Item                                                            | Component             |
 | ------------------------------------------------- | -------- | --------------------------------------------------------------- | --------------------- |
 | [005](./005-saved-views-and-custom-dashboards.md) | **P1**   | No way to save a question, so every session starts from scratch | collector + dashboard |
-| [011](./011-sdk-distribution.md)                  | **P3**   | Installing the SDK is genuinely awkward, in three separate ways | sdk                   |
-| [012](./012-stale-task-manifest.md)               | **P3**   | `tasks/manifest.json` says 17 shipped features are `todo`       | repo                  |
-| [016](./016-first-run-empty-state.md)             | **P3**   | A fresh collector gives no clue what to do next                 | dashboard             |
 
 ## What shipped
 
-Fifteen items have been delivered and their files deleted; `changelog/006`
-through `changelog/015` are the record. Briefly:
+Eighteen items have been delivered and their files deleted; `changelog/006`
+through `changelog/016` are the record. Briefly:
 
 - **The two P0s** — replay chunks were overwriting each other across page loads
   (32 of 50 chunks destroyed in a measured session), and `autocapture` was a
@@ -56,6 +53,12 @@ through `changelog/015` are the record. Briefly:
   alerting, and server-side ingest.
 - **An accessibility pass** — a browser audit went from 21 findings to zero, the
   replay player is keyboard-operable, and a static guard runs in CI.
+- **A first-run setup panel**, so an empty dashboard explains itself instead of
+  looking like a broken install.
+- **`scripts/vendor.sh`** — one supported path from a checkout to a working
+  install, plus the SDK's 5KB budget finally enforced.
+- **`tasks/` statuses corrected** — seventeen rows claimed `todo` for shipped
+  features.
 
 Two bugs were found while building, neither of them on the list: the SDK's
 `flush()` silently dropped events when one was already in flight, and the

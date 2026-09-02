@@ -22,8 +22,10 @@ func run(cfg *Config, st *store.Store) error {
 
 	// Convert config apps to ingest.AppCfg map.
 	apps := make(map[string]ingest.AppCfg, len(cfg.Apps))
+	appSlugs := make([]string, 0, len(cfg.Apps))
 	for name, a := range cfg.Apps {
 		apps[name] = ingest.AppCfg{Key: a.Key, ServerKey: a.ServerKey, Origins: a.Origins}
+		appSlugs = append(appSlugs, name)
 	}
 
 	replayHandler := query.NewReplayHandler(cfg.DataDir)
@@ -60,6 +62,7 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("GET /v1/query/aggregates", gate(query.NewAggregatesHandler(st)))
 	mux.Handle("GET /v1/query/counts", gate(query.NewCountsHandler(st)))
 	mux.Handle("GET /v1/query/flow-detail", gate(query.NewFlowDetailHandler(st)))
+	mux.Handle("GET /v1/query/meta", gate(query.NewMetaHandler(st, version, appSlugs)))
 	mux.Handle("GET /v1/sessions/", gate(replayHandler))
 	mux.Handle("GET /v1/incidents/", gate(incidentHandler))
 	mux.Handle("/", gate(dashboard.Handler()))

@@ -23,45 +23,6 @@
       "effort": "S (step 1) / M (steps 2-3)",
       "note": "The stated product direction. Depends on todo-003 or it ships a builder over three dimensions.",
       "status": "todo"
-    },
-    {
-      "id": "todo-011",
-      "priority": "P3",
-      "component": "sdk",
-      "title": "Installing the SDK is genuinely awkward, in three separate ways",
-      "file": "011-sdk-distribution.md",
-      "depends_on": [],
-      "src_files": ["sdk/package.json", "scripts/vendor.sh", "docs/sdk.mdx"],
-      "evidence": "npm link errors in pnpm projects; a cross-repo link: fails under Turbopack and widening the root took a compile from 1.5s to >2min; no require condition, so CJS resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED",
-      "exit_check": "One documented, tested path from checkout to working install that the consumer does not have to script themselves",
-      "effort": "S-M",
-      "status": "todo"
-    },
-    {
-      "id": "todo-012",
-      "priority": "P3",
-      "component": "repo",
-      "title": "tasks/manifest.json says 17 shipped features are todo",
-      "file": "012-stale-task-manifest.md",
-      "depends_on": [],
-      "src_files": ["tasks/manifest.json", "tasks/README.md", "CLAUDE.md"],
-      "evidence": "17 rows marked todo; only 3 are genuinely outstanding, and 2 of those for reasons the manifest does not record",
-      "exit_check": "Every status reflects reality; tasks/ is marked historical and points at todo/; CLAUDE.md names todo/ as the live backlog",
-      "effort": "XS",
-      "status": "todo"
-    },
-    {
-      "id": "todo-016",
-      "priority": "P3",
-      "component": "dashboard",
-      "title": "A fresh collector gives no clue what to do next",
-      "file": "016-first-run-empty-state.md",
-      "depends_on": [],
-      "src_files": ["collector/query/meta.go", "collector/dashboard/ui/src/views/Setup.tsx"],
-      "exit_check": "Zero-event collector shows a pre-filled snippet and the CSP line with its real origin; panel clears itself on first event; an empty time window never shows setup; no endpoint exposes an app key",
-      "effort": "S-M",
-      "note": "The most common first-run failure is a connect-src that blocks every POST with no console error \u2014 the dashboard is where someone will be looking when it happens.",
-      "status": "todo"
     }
   ]
 }

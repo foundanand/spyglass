@@ -5,7 +5,7 @@
   "title": "User timeline view",
   "depends_on": ["p1-dashboard-shell", "p1-query-events"],
   "src_files": ["collector/dashboard/ui/views/UserTimeline.tsx"],
-  "exit_check": "Pick user → sessions → chronological breadcrumbs (pageviews, captures, network, errors)",
-  "refs": "§7.2",
-  "status": "todo"
+  "exit_check": "Pick user \u2192 sessions \u2192 chronological breadcrumbs (pageviews, captures, network, errors)",
+  "refs": "\u00a77.2",
+  "status": "done"
 }

@@ -16,7 +16,8 @@
     "./next": {
       "types": "./dist/next.d.ts",
       "import": "./dist/next.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist"
@@ -24,7 +25,8 @@
   "scripts": {
     "build": "node build.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size-check": "node size-check.mjs"
   },
   "dependencies": {
     "@rrweb/rrweb-plugin-console-record": "^2.0.1",

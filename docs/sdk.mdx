@@ -20,6 +20,100 @@ spyglass.report(comment, extra?);  // programmatic bug report
 
 ---
 
+## Installing
+
+`@spyglass/sdk` is **not on npm** — GPL, self-hosted, and meant to work behind an
+air gap. Pick one of these.
+
+### Recommended: a private registry or a git dependency
+
+If you can run [Verdaccio](https://verdaccio.org/) or install from a git URL, do
+that. It behaves like any other dependency and sidesteps everything below.
+
+### Otherwise: vendor it
+
+From a spyglass checkout:
+
+```bash
+scripts/vendor.sh /path/to/your-app
+```
+
+That builds the SDK, checks it against its 5KB budget, packs it, and copies the
+result to `your-app/vendor/spyglass-sdk` with a `VENDORED.json` recording the
+source commit and whether the tree was dirty. Then:
+
+```bash
+pnpm add file:./vendor/spyglass-sdk
+```
+
+It copies rather than symlinks deliberately — see below.
+
+### Hazards, all of them silent
+
+These are the things that go wrong, and none produces a useful error.
+
+<Callout type="warn">
+  **`npm link` does not work in a pnpm project at all.**
+
+```
+npm error Cannot read properties of null (reading 'matches')
+```
+
+npm cannot parse pnpm's `node_modules` layout. There is no workaround; use the
+vendor script.
+
+</Callout>
+
+**A cross-repo `link:` breaks under Turbopack.** pnpm accepts
+`pnpm add link:../spyglass/sdk`, and then the bundler rejects it: Turbopack
+resolves a symlinked dependency to its **real** path and refuses anything
+outside the workspace root it infers from the lockfile. You get
+`Module not found: Can't resolve '@spyglass/sdk'` while Node and `tsc` both
+resolve it fine.
+
+Pointing `turbopack.root` at the shared parent appears to fix it and is a trap.
+Measured on a host app with ~11 sibling projects, each carrying its own
+`node_modules`:
+
+|                            | Default root | Root at shared parent |
+| -------------------------- | ------------ | --------------------- |
+| First `/dashboard` compile | 1.5s         | **over 2 minutes**    |
+| An API route               | 62ms         | 51–93s                |
+
+It also changes what `output: standalone` traces. Copy the package into your
+repo instead, so the real path is back inside your workspace root — which is
+what `scripts/vendor.sh` does.
+
+**Only the core entry is safe to link.** Importing `@spyglass/sdk/next` from a
+linked package loads a **second copy of React**, because the bundler resolves
+`react` through the symlink into the SDK's own `node_modules`. The resulting
+hook errors point nowhere near the cause.
+
+The core entry imports nothing external, and `npm run size-check` in `sdk/`
+asserts that on every build:
+
+```bash
+$ cd sdk && node size-check.mjs
+core: 4.34KB gz (budget 5KB)
+core entry has no external imports -- safe to link
+```
+
+**The package is ESM-only.** There is no `require` condition and no CJS build —
+a dual-package hazard is worse than this papercut. A CJS tool that needs to
+locate the package should resolve its manifest, which is exported for exactly
+this reason:
+
+```js
+const { createRequire } = require("node:module");
+const req = createRequire(__filename);
+const pkgDir = require("node:path").dirname(req.resolve("@spyglass/sdk/package.json"));
+```
+
+`require.resolve("@spyglass/sdk")` itself still throws `ERR_PACKAGE_PATH_NOT_EXPORTED`,
+by design.
+
+---
+
 ## `init(config)`
 
 Call once, as early as possible. Throws if `endpoint`, `app`, `key`, or

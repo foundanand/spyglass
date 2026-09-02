@@ -268,6 +268,6 @@ spyglass/
 `todo/` is the live backlog — what is outstanding and why, one file per item with
 evidence, an approach, and acceptance criteria. Start there.
 
-`tasks/` records the _original_ build breakdown. Its statuses have drifted badly
-(17 rows say `todo` for features that shipped), so do not read it as a work
-queue — see `todo/012-stale-task-manifest.md`.
+`tasks/` records the _original_ build breakdown and is historical. Its statuses
+now match reality (every task `done`, bar two `wontfix` rows that say why), but
+it is still not a work queue — new work goes in `todo/`.

@@ -6,6 +6,6 @@
   "depends_on": ["p1-store-open"],
   "src_files": ["collector/query/funnel.go"],
   "exit_check": "?steps=a,b,c returns a simple SQL step funnel; table-driven test",
-  "refs": "§6, §7.5",
-  "status": "todo"
+  "refs": "\u00a76, \u00a77.5",
+  "status": "done"
 }

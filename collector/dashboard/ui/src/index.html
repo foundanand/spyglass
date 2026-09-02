@@ -324,6 +324,45 @@
     }
     nav a:focus-visible { outline-offset: 4px; }
 
+    /* ---- first-run setup panel ---- */
+    .setup { max-width: 760px; margin: 2.5rem auto; }
+    .setup h2 { font-size: 1.15rem; margin-bottom: 0.5rem; }
+    .setup-lede { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem; }
+    .setup-steps { list-style: none; display: flex; flex-direction: column; gap: 1.25rem; }
+    .setup-step { display: flex; gap: 0.8rem; align-items: flex-start; }
+    .setup-step > div { flex: 1; min-width: 0; }
+    .setup-step strong { font-size: 0.9rem; }
+    .setup-step p { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
+    .setup-step code {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 3px; padding: 0.05rem 0.28rem; font-family: var(--font-data);
+      font-size: 0.78rem; color: var(--text);
+    }
+    .setup-tick {
+      flex: none; width: 22px; height: 22px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.72rem; font-weight: 700;
+      background: var(--green); color: #05230f;
+    }
+    .setup-tick.pending { background: var(--surface-2); color: var(--muted-2); border: 1px solid var(--border); }
+    .setup-block { margin-top: 0.6rem; border: 1px solid var(--border); border-radius: var(--r-sm); overflow: hidden; }
+    .setup-block-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0.3rem 0.6rem; background: var(--surface);
+      font-size: 0.7rem; color: var(--muted); text-transform: lowercase;
+    }
+    .setup-code {
+      margin: 0; padding: 0.7rem 0.8rem; background: var(--surface-2);
+      font-family: var(--font-data); font-size: 0.76rem; line-height: 1.55;
+      color: var(--text); overflow-x: auto; white-space: pre;
+    }
+    .setup-waiting {
+      display: flex; align-items: center; gap: 0.5rem; margin-top: 1.75rem;
+      padding: 0.7rem 0.9rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-sm); font-size: 0.83rem; color: var(--text);
+    }
+    .setup-foot { margin-top: 1rem; font-size: 0.78rem; color: var(--muted); }
+
     main { padding: 1.5rem; }
     h2 { font-size: 1.05rem; font-weight: 650; margin-bottom: 1rem; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; }
 

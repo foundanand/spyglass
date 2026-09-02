@@ -74,3 +74,8 @@ jobs:
         run: pnpm --filter @spyglass/sdk typecheck
       - name: unit tests
         run: pnpm --filter @spyglass/sdk test
+      # The core has a 5KB gzipped budget, and its entry must import nothing
+      # external — a linked SDK whose entry pulls in react loads a second copy
+      # of it, and the resulting hook errors point nowhere near the cause.
+      - name: sdk size budget and link safety
+        run: pnpm --filter @spyglass/sdk build && pnpm --filter @spyglass/sdk size-check

@@ -60,17 +60,26 @@ roughly 0.5–2 MB per user-hour of active use, capped by `replays_days`.
 
 ### 2. Add the SDK to your app
 
-The SDK lives in `sdk/` (`@spyglass/sdk`). It is **not** published to npm —
-build it, pack it, and install the tarball (or push it to your own registry):
+The SDK lives in `sdk/` (`@spyglass/sdk`). It is **not** published to npm — GPL,
+self-hosted, air-gap. One command vendors it into your app:
 
 ```bash
 # in this repo
-pnpm --filter @spyglass/sdk build
-cd sdk && pnpm pack        # → spyglass-sdk-0.0.0.tgz
+scripts/vendor.sh /path/to/your-app
 
 # in your app
-pnpm add file:./vendor/spyglass-sdk-0.0.0.tgz
+pnpm add file:./vendor/spyglass-sdk
 ```
+
+That builds, size-checks and packs the SDK, copies it in, and writes a
+`VENDORED.json` recording the source commit — so "which build is this running"
+stays answerable. If you can run a private registry (Verdaccio) or install from
+a git URL, prefer that.
+
+> `npm link` does not work in pnpm projects, and a cross-repo `link:` breaks
+> under Turbopack. Both fail silently or misleadingly — see
+> [Installing](docs/sdk.mdx) for what goes wrong and why the script copies
+> rather than symlinks.
 
 ```ts
 import { spyglass } from "@spyglass/sdk";
@@ -276,9 +285,11 @@ which fails the build (and CI) if an outbound call or external asset slips in.
 amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
   is nothing to install and no runtime dependency to resolve. The database is a
   single SQLite file, so backup and restore are `cp`.
-- **SDK:** not on npm — `pnpm pack` it to a tarball outside the enclave and
-  vendor it (`pnpm add file:./vendor/spyglass-sdk-*.tgz`), or build your app
-  where the tarball is reachable. Its only runtime dep, rrweb, is bundled.
+- **SDK:** not on npm — run `scripts/vendor.sh /path/to/your-app` outside the
+  enclave and carry the resulting `vendor/spyglass-sdk` directory in with the
+  rest of the app, or build your app where the checkout is reachable. Its only
+  runtime dep, rrweb, is bundled, and `VENDORED.json` records which commit the
+  copy came from.
 - **Upgrades are staggered-safe.** The wire format is versioned (`/v1/`), so the
   SDK and collector can be updated independently — no lockstep redeploy across
   the boundary.

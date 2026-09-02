@@ -9,6 +9,7 @@ import { Home } from "./views/Home.js";
 import { FlowPage } from "./views/FlowPage.js";
 import { UserPage } from "./views/UserPage.js";
 import { ScreenPage } from "./views/ScreenPage.js";
+import { Setup } from "./views/Setup.js";
 import { Icon } from "./components/Icon.js";
 import { DEFAULT_RANGE, isRangeKey, RANGES, resolveRange, type RangeKey } from "./range.js";
 
@@ -127,10 +128,28 @@ const NAV_PARENT: Partial<Record<View, View>> = {
   screen: "behaviour",
 };
 
+interface Meta {
+  version: string;
+  apps: string[];
+  has_any_events: boolean;
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>(parseHash());
   const navRef = useRef<HTMLElement>(null);
   const [ind, setInd] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
+  // undefined = not yet known; the nav is held back until then so a fresh
+  // install does not flash five empty tabs before the setup panel appears.
+  const [meta, setMeta] = useState<Meta | undefined>(undefined);
+
+  useEffect(() => {
+    fetch("/v1/query/meta")
+      .then((r) => r.json())
+      .then(setMeta)
+      // If meta is unreachable, fall through to the normal dashboard rather
+      // than trapping the user on a setup screen for a request that failed.
+      .catch(() => setMeta({ version: "", apps: [], has_any_events: true }));
+  }, []);
 
   useEffect(() => {
     const onHash = () => setRoute(parseHash());
@@ -168,6 +187,18 @@ export function App() {
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
   }, [navActive]);
+
+  // Nothing has ever arrived: this is a setup problem, not an empty window, and
+  // the terse "no activity yet" is the least useful thing to say about it.
+  if (meta && !meta.has_any_events) {
+    return (
+      <main>
+        <div id="app">
+          <Setup meta={meta} onArrived={() => setMeta({ ...meta, has_any_events: true })} />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <>

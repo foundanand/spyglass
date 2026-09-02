@@ -149,6 +149,24 @@ window by session activity, so "who was active this week" is answerable.
 Session list, newest first. `?limit=` (default 100, max 500), optional
 `from`/`to`. Each row carries `meta` when the SDK sent session context.
 
+### `GET /v1/query/meta`
+
+What this collector is configured for: `version`, the app **slugs**, and
+`has_any_events`.
+
+```json
+{ "version": "v0.4.0", "apps": ["inventory"], "has_any_events": false }
+```
+
+`has_any_events` distinguishes "nothing has ever arrived" — a setup problem the
+dashboard explains with its first-run panel — from "nothing in the window you
+picked", which is normal.
+
+<Callout type="warn">
+  This never returns app keys. The dashboard password and the ingest keys are separate credentials
+  on purpose, and this endpoint sits behind the former.
+</Callout>
+
 ### `GET /v1/query/counts`
 
 Event counts by type in a window. Optional `app`, `user`, `from`, `to`.

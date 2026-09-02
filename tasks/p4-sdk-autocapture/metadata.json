@@ -6,6 +6,6 @@
   "depends_on": ["p1-sdk-capture"],
   "src_files": ["sdk/src/autocapture.ts"],
   "exit_check": "autocapture:true lazy-loads a module recording clicks + form changes; zero bytes when off",
-  "refs": "§2, §5",
-  "status": "todo"
+  "refs": "\u00a72, \u00a75",
+  "status": "wontfix"
 }

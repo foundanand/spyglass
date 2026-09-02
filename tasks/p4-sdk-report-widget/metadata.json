@@ -5,7 +5,7 @@
   "title": "Bug-report widget (Shadow DOM)",
   "depends_on": ["p1-sdk-capture"],
   "src_files": ["sdk/src/widget.ts"],
-  "exit_check": "Floating button → comment box → emits bug_report event; Shadow DOM, no style bleed",
-  "refs": "§5",
-  "status": "todo"
+  "exit_check": "Floating button \u2192 comment box \u2192 emits bug_report event; Shadow DOM, no style bleed",
+  "refs": "\u00a75",
+  "status": "done"
 }
