@@ -42,7 +42,12 @@ const CONSOLE_PLUGIN = "@rrweb/rrweb-plugin-console-record";
 
 function fmtTs(ms: number) {
   return new Date(ms).toLocaleString([], {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
   });
 }
 
@@ -65,23 +70,43 @@ function StackBlock({ stack }: { stack?: unknown }) {
 }
 
 const TYPE_BADGE: Record<string, string> = {
-  event: "badge-event", pageview: "badge-pageview", error: "badge-error",
-  network: "badge-network", bug_report: "badge-bug_report",
+  event: "badge-event",
+  pageview: "badge-pageview",
+  error: "badge-error",
+  network: "badge-network",
+  bug_report: "badge-bug_report",
 };
 
 function BreadcrumbsTable({
-  events, incidentTs, nowTs, onSeek,
+  events,
+  incidentTs,
+  nowTs,
+  onSeek,
 }: {
-  events: SpyEvent[]; incidentTs: number; nowTs: number; onSeek: (ts: number) => void;
+  events: SpyEvent[];
+  incidentTs: number;
+  nowTs: number;
+  onSeek: (ts: number) => void;
 }) {
   const nowRow = lastLe(events, nowTs);
   return (
     <table>
       <thead>
-        <tr><th>time</th><th>type</th><th>name / url</th><th>details</th></tr>
+        <tr>
+          <th>time</th>
+          <th>type</th>
+          <th>name / url</th>
+          <th>details</th>
+        </tr>
       </thead>
       <tbody>
-        {events.length === 0 && (<tr><td colSpan={4} class="empty">no breadcrumbs</td></tr>)}
+        {events.length === 0 && (
+          <tr>
+            <td colSpan={4} class="empty">
+              no breadcrumbs
+            </td>
+          </tr>
+        )}
         {events.map((e) => {
           const isIncident = e.ts === incidentTs;
           const isNow = nowTs > 0 && e.ts === nowRow;
@@ -93,9 +118,13 @@ function BreadcrumbsTable({
               title="Jump to this moment"
             >
               <td class="ts">{fmtTs(e.ts)}</td>
-              <td><span class={`badge ${TYPE_BADGE[e.type] ?? "badge-event"}`}>{e.type}</span></td>
+              <td>
+                <span class={`badge ${TYPE_BADGE[e.type] ?? "badge-event"}`}>{e.type}</span>
+              </td>
               <td>{e.name || e.url || "—"}</td>
-              <td><PropsChips props={e.props} max={3} /></td>
+              <td>
+                <PropsChips props={e.props} max={3} />
+              </td>
             </tr>
           );
         })}
@@ -112,9 +141,13 @@ function lastLe(events: SpyEvent[], nowTs: number): number {
 }
 
 function NetworkWaterfall({
-  events, onSeek, nowTs,
+  events,
+  onSeek,
+  nowTs,
 }: {
-  events: SpyEvent[]; onSeek: (ts: number) => void; nowTs: number;
+  events: SpyEvent[];
+  onSeek: (ts: number) => void;
+  nowTs: number;
 }) {
   const net = events.filter((e) => e.type === "network");
   if (net.length === 0) return <p class="empty">no network requests in window</p>;
@@ -130,7 +163,13 @@ function NetworkWaterfall({
   return (
     <table class="network-table">
       <thead>
-        <tr><th>method</th><th>url</th><th>status</th><th>duration</th><th style="width:160px">waterfall</th></tr>
+        <tr>
+          <th>method</th>
+          <th>url</th>
+          <th>status</th>
+          <th>duration</th>
+          <th style="width:160px">waterfall</th>
+        </tr>
       </thead>
       <tbody>
         {net.map((e, i) => {
@@ -139,12 +178,30 @@ function NetworkWaterfall({
           const dur = Number(e.props?.duration_ms ?? 0);
           const left = ((e.ts - winStart) / span) * 100;
           const width = Math.max(1.5, (dur / span) * 100);
-          const statusClass = status >= 500 ? "status-5xx" : status >= 400 ? "status-4xx" : status >= 300 ? "status-3xx" : "status-2xx";
+          const statusClass =
+            status >= 500
+              ? "status-5xx"
+              : status >= 400
+                ? "status-4xx"
+                : status >= 300
+                  ? "status-3xx"
+                  : "status-2xx";
           return (
-            <tr key={i} class={`row-clickable${nowTs > 0 && e.ts === nowRow ? " now" : ""}`} onClick={() => onSeek(e.ts)}>
+            <tr
+              key={i}
+              class={`row-clickable${nowTs > 0 && e.ts === nowRow ? " now" : ""}`}
+              onClick={() => onSeek(e.ts)}
+            >
               <td class="ts">{method}</td>
-              <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px" title={e.name}>{e.name}</td>
-              <td><span class={`status-badge ${statusClass}`}>{status || "—"}</span></td>
+              <td
+                style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px"
+                title={e.name}
+              >
+                {e.name}
+              </td>
+              <td>
+                <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
+              </td>
               <td class="ts">{dur ? fmtDuration(dur) : "—"}</td>
               <td>
                 <div class="waterfall-track">
@@ -160,9 +217,13 @@ function NetworkWaterfall({
 }
 
 function ConsolePane({
-  logs, nowIdx, onSeek,
+  logs,
+  nowIdx,
+  onSeek,
 }: {
-  logs: ConsoleLine[]; nowIdx: number; onSeek: (ts: number) => void;
+  logs: ConsoleLine[];
+  nowIdx: number;
+  onSeek: (ts: number) => void;
 }) {
   if (logs.length === 0) return <p class="empty">no console output in replay</p>;
   return (
@@ -226,12 +287,18 @@ export function Incident({ eventId, onBack }: IncidentProps) {
 
     try {
       if (playerRef.current) {
-        try { playerRef.current.destroy(); } catch { /* noop */ }
+        try {
+          playerRef.current.destroy();
+        } catch {
+          /* noop */
+        }
         playerRef.current = null;
       }
       if (playerContainerRef.current) playerContainerRef.current.innerHTML = "";
 
-      const manifest = await fetch(`/v1/sessions/${incident.session_id}/replay`).then((r) => r.json());
+      const manifest = await fetch(`/v1/sessions/${incident.session_id}/replay`).then((r) =>
+        r.json(),
+      );
       const chunks: { seq: number; ts: number; path: string }[] = manifest.chunks ?? [];
       if (chunks.length === 0) {
         setReplayLoading(false);
@@ -245,7 +312,10 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         for (const ev of events) {
           allEvents.push(ev);
           const e = ev as Record<string, unknown>;
-          if (e.type === PLUGIN_EVENT && (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN) {
+          if (
+            e.type === PLUGIN_EVENT &&
+            (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN
+          ) {
             const p = (e.data as Record<string, unknown>).payload as Record<string, unknown>;
             logs.push({
               ts: e.timestamp as number,
@@ -270,13 +340,18 @@ export function Incident({ eventId, onBack }: IncidentProps) {
         // Markers: the incident moment + every breadcrumb of interest.
         const markers: Marker[] = [];
         if (firstTs > 0) {
-          markers.push({ offset: incident.incident_ts - firstTs, kind: "incident", label: incident.event.name });
+          markers.push({
+            offset: incident.incident_ts - firstTs,
+            kind: "incident",
+            label: incident.event.name,
+          });
           for (const b of incident.breadcrumbs) {
             const offset = b.ts - firstTs;
             if (offset < 0) continue;
             if (b.type === "error") markers.push({ offset, kind: "error", label: b.name });
             else if (b.type === "bug_report") markers.push({ offset, kind: "bug", label: b.name });
-            else if (b.type === "pageview") markers.push({ offset, kind: "pageview", label: b.name || b.url || "pageview" });
+            else if (b.type === "pageview")
+              markers.push({ offset, kind: "pageview", label: b.name || b.url || "pageview" });
           }
           playerRef.current.setMarkers(markers);
         }
@@ -287,7 +362,10 @@ export function Incident({ eventId, onBack }: IncidentProps) {
           setNowTs((prev) => (prev === absTs ? prev : absTs));
           const ls = logsRef.current;
           let idx = -1;
-          for (let i = 0; i < ls.length; i++) { if (ls[i].ts <= absTs) idx = i; else break; }
+          for (let i = 0; i < ls.length; i++) {
+            if (ls[i].ts <= absTs) idx = i;
+            else break;
+          }
           setNowIdx((prev) => (prev === idx ? prev : idx));
         });
 
@@ -309,7 +387,9 @@ export function Incident({ eventId, onBack }: IncidentProps) {
   if (fetchError) {
     return (
       <div>
-        <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
+        <button class="back-btn" onClick={onBack}>
+          <Icon name="back" /> Back
+        </button>
         <div style="color:var(--red);margin-top:1rem">{fetchError}</div>
       </div>
     );
@@ -318,7 +398,9 @@ export function Incident({ eventId, onBack }: IncidentProps) {
   if (!data) {
     return (
       <div>
-        <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
+        <button class="back-btn" onClick={onBack}>
+          <Icon name="back" /> Back
+        </button>
         <p class="empty">Loading incident…</p>
       </div>
     );
@@ -329,20 +411,32 @@ export function Incident({ eventId, onBack }: IncidentProps) {
 
   return (
     <div class="incident-root">
-      <button class="back-btn" onClick={onBack}><Icon name="back" /> Back</button>
+      <button class="back-btn" onClick={onBack}>
+        <Icon name="back" /> Back
+      </button>
 
       <div class={`incident-header${isBugReport ? " is-bug" : ""}`}>
         <span class={`badge ${isBugReport ? "badge-bug_report" : "badge-error"}`}>
-          <Icon name={isBugReport ? "bug" : "error"} size={11} /> {isBugReport ? "bug report" : "error"}
+          <Icon name={isBugReport ? "bug" : "error"} size={11} />{" "}
+          {isBugReport ? "bug report" : "error"}
         </span>
         <h2 class="incident-title">{ev.name}</h2>
         <div class="incident-meta">
           <span>{fmtTs(ev.ts)}</span>
           <span>·</span>
-          <span style="display:inline-flex;align-items:center;gap:0.3rem"><Avatar id={ev.user_id} size={16} /> {ev.user_id}</span>
+          <span style="display:inline-flex;align-items:center;gap:0.3rem">
+            <Avatar id={ev.user_id} size={16} /> {ev.user_id}
+          </span>
           <span>·</span>
-          <span class="ts" title={ev.session_id}>{ev.session_id.slice(0, 12)}…</span>
-          {ev.url && <><span>·</span><span class="muted">{ev.url}</span></>}
+          <span class="ts" title={ev.session_id}>
+            {ev.session_id.slice(0, 12)}…
+          </span>
+          {ev.url && (
+            <>
+              <span>·</span>
+              <span class="muted">{ev.url}</span>
+            </>
+          )}
         </div>
         {ev.props?.stack && <StackBlock stack={ev.props.stack} />}
         {isBugReport && ev.props?.severity && (
@@ -351,23 +445,41 @@ export function Incident({ eventId, onBack }: IncidentProps) {
       </div>
 
       <section class="incident-section">
-        <h3><Icon name="play" /> Replay {replayLoading && <span class="live-tag"><span class="live-dot" /> loading</span>}</h3>
+        <h3>
+          <Icon name="play" /> Replay{" "}
+          {replayLoading && (
+            <span class="live-tag">
+              <span class="live-dot" /> loading
+            </span>
+          )}
+        </h3>
         {!data.replay_cue && <p class="empty">No replay available for this session</p>}
         {data.replay_cue && <div ref={playerContainerRef} class="player-container" />}
       </section>
 
       <section class="incident-section">
-        <h3><Icon name="clock" /> Breadcrumbs <span class="count">({data.breadcrumbs.length})</span></h3>
-        <BreadcrumbsTable events={data.breadcrumbs} incidentTs={data.incident_ts} nowTs={nowTs} onSeek={seekToTs} />
+        <h3>
+          <Icon name="clock" /> Breadcrumbs <span class="count">({data.breadcrumbs.length})</span>
+        </h3>
+        <BreadcrumbsTable
+          events={data.breadcrumbs}
+          incidentTs={data.incident_ts}
+          nowTs={nowTs}
+          onSeek={seekToTs}
+        />
       </section>
 
       <section class="incident-section">
-        <h3><Icon name="network" /> Network</h3>
+        <h3>
+          <Icon name="network" /> Network
+        </h3>
         <NetworkWaterfall events={data.breadcrumbs} nowTs={nowTs} onSeek={seekToTs} />
       </section>
 
       <section class="incident-section">
-        <h3><Icon name="network" /> Console <span class="count">({consoleLogs.length})</span></h3>
+        <h3>
+          <Icon name="network" /> Console <span class="count">({consoleLogs.length})</span>
+        </h3>
         <ConsolePane logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />
       </section>
     </div>

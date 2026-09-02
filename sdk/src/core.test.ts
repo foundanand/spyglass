@@ -15,7 +15,14 @@ describe("init()", () => {
   });
 
   it("applies explicit config overrides", () => {
-    init({ endpoint: "http://x", app: "a", key: "k", user: { id: "u" }, replay: false, autocapture: true });
+    init({
+      endpoint: "http://x",
+      app: "a",
+      key: "k",
+      user: { id: "u" },
+      replay: false,
+      autocapture: true,
+    });
     expect(getConfig().replay).toBe(false);
     expect(getConfig().autocapture).toBe(true);
   });

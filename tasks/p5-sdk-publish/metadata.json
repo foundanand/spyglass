@@ -9,11 +9,7 @@
     "p3-sdk-network",
     "p4-sdk-report-widget"
   ],
-  "src_files": [
-    "sdk/package.json",
-    "sdk/.github/",
-    "sdk/size-check.mjs"
-  ],
+  "src_files": ["sdk/package.json", "sdk/.github/", "sdk/size-check.mjs"],
   "exit_check": "Core ≤5KB gz (rrweb lazy); package publishes to npm",
   "refs": "§5, §12",
   "status": "todo"

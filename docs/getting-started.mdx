@@ -72,17 +72,16 @@ published to public npm), then initialize it once, as early as possible:
 import { spyglass } from "@spyglass/sdk";
 
 spyglass.init({
-  endpoint: "http://localhost:7474",  // your collector URL
-  app: "inventory",                   // matches the config slug
+  endpoint: "http://localhost:7474", // your collector URL
+  app: "inventory", // matches the config slug
   key: "sg_live_pick_a_long_random_string", // matches apps.inventory.key
   user: { id: "anand", name: "Anand", email: "anand@acme.dev" },
 });
 ```
 
 <Callout type="warn">
-`endpoint`, `app`, `key`, and `user.id` are **required** — `init()` throws if any
-is missing. Every session is tied to an identified user by design; spyglass does
-not track anonymous visitors.
+  `endpoint`, `app`, `key`, and `user.id` are **required** — `init()` throws if any is missing.
+  Every session is tied to an identified user by design; spyglass does not track anonymous visitors.
 </Callout>
 
 That single call turns on, with their defaults:

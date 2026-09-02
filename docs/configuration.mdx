@@ -53,26 +53,26 @@ data/
 A map of app slug → settings. At least one app is **required**; the collector
 refuses to start otherwise. The SDK's `app` and `key` must match an entry here.
 
-| Field | Required | Purpose |
-|---|---|---|
-| `key` | yes | Secret the SDK presents on every ingest request. Any long random string. |
-| `origins` | no | Allowed browser origins (CORS) for this app. Add your dev and prod URLs. |
+| Field     | Required | Purpose                                                                  |
+| --------- | -------- | ------------------------------------------------------------------------ |
+| `key`     | yes      | Secret the SDK presents on every ingest request. Any long random string. |
+| `origins` | no       | Allowed browser origins (CORS) for this app. Add your dev and prod URLs. |
 
 Run several apps off one collector by adding more entries — each with its own key.
 
 <Callout type="info">
-The app `key` authenticates **ingest** (`/v1/events`, `/v1/replay`). It is
-separate from the dashboard password, which gates the *reading* side.
+  The app `key` authenticates **ingest** (`/v1/events`, `/v1/replay`). It is separate from the
+  dashboard password, which gates the *reading* side.
 </Callout>
 
 ## `retention`
 
 How long data is kept. A value of `0` means **keep forever**.
 
-| Field | Default | Meaning |
-|---|---|---|
-| `replays_days` | `21` | Delete replay directories older than N days. |
-| `events_days` | `0` | Delete events older than N days. `0` = keep forever (events are tiny). |
+| Field          | Default | Meaning                                                                |
+| -------------- | ------- | ---------------------------------------------------------------------- |
+| `replays_days` | `21`    | Delete replay directories older than N days.                           |
+| `events_days`  | `0`     | Delete events older than N days. `0` = keep forever (events are tiny). |
 
 A retention sweep runs once on boot and then every 24 hours, in-process. Replays
 are bulky (MBs per active hour) so they expire by default; events are rows worth
@@ -80,8 +80,8 @@ bytes, so they're kept indefinitely unless you set `events_days`.
 
 ## `auth`
 
-| Field | Purpose |
-|---|---|
+| Field                | Purpose                                                |
+| -------------------- | ------------------------------------------------------ |
 | `dashboard_password` | Password gating the dashboard and all query endpoints. |
 
 When set, the dashboard and every read endpoint require [HTTP Basic auth](/docs/deployment#authentication)
@@ -110,12 +110,12 @@ Keep real secrets out of the file this way and commit the config safely.
 
 ## Defaults at a glance
 
-| Key | Default |
-|---|---|
-| `listen` | `:7474` |
-| `dataDir` | `./data` |
-| `retention.replays_days` | `21` |
-| `retention.events_days` | `0` (keep forever) |
-| `auth.dashboard_password` | empty (no auth) |
+| Key                       | Default            |
+| ------------------------- | ------------------ |
+| `listen`                  | `:7474`            |
+| `dataDir`                 | `./data`           |
+| `retention.replays_days`  | `21`               |
+| `retention.events_days`   | `0` (keep forever) |
+| `auth.dashboard_password` | empty (no auth)    |
 
 A copyable starting point lives at `spyglass.config.example.json` in the repo.

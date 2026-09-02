@@ -27,14 +27,20 @@ function parseHash(): Route {
   const h = window.location.hash.replace(/^#\/?/, "");
   const [seg, param] = h.split("/");
   switch (seg) {
-    case "timeline": return { view: "timeline", param };
-    case "errors": return { view: "errors" };
-    case "replay": return { view: "replay", param };
-    case "insights": return { view: "insights" };
-    case "incident": return { view: "incident", param };
+    case "timeline":
+      return { view: "timeline", param };
+    case "errors":
+      return { view: "errors" };
+    case "replay":
+      return { view: "replay", param };
+    case "insights":
+      return { view: "insights" };
+    case "incident":
+      return { view: "incident", param };
     case "live":
     case "":
-    default: return { view: "live" };
+    default:
+      return { view: "live" };
   }
 }
 
@@ -61,7 +67,9 @@ export function App() {
     document.title = `${TITLES[route.view]} — spyglass`;
   }, [route.view]);
 
-  const go = (hash: string) => { window.location.hash = hash; };
+  const go = (hash: string) => {
+    window.location.hash = hash;
+  };
   const openIncident = (id: number) => go(`/incident/${id}`);
 
   const { view, param } = route;
@@ -81,13 +89,18 @@ export function App() {
   return (
     <>
       <nav ref={navRef}>
-        <span class="logo"><Icon name="search" size={16} /> spyglass</span>
+        <span class="logo">
+          <Icon name="search" size={16} /> spyglass
+        </span>
         {NAV.map((n) => (
           <a
             key={n.view}
             href={`#/${n.view}`}
             class={navActive === n.view ? "active" : ""}
-            onClick={(e) => { e.preventDefault(); go(`/${n.view}`); }}
+            onClick={(e) => {
+              e.preventDefault();
+              go(`/${n.view}`);
+            }}
           >
             {n.label}
           </a>
@@ -103,11 +116,7 @@ export function App() {
             {view === "replay" && <ReplayPlayer key={param ?? "all"} initialSessionId={param} />}
             {view === "insights" && <Insights />}
             {view === "incident" && param && (
-              <Incident
-                key={param}
-                eventId={Number(param)}
-                onBack={() => go("/errors")}
-              />
+              <Incident key={param} eventId={Number(param)} onBack={() => go("/errors")} />
             )}
           </div>
         </div>

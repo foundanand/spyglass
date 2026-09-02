@@ -5,7 +5,7 @@ const watch = process.argv.includes("--watch");
 
 const opts = {
   entryPoints: [{ in: "src/main.tsx", out: "app" }],
-  outdir: "dist",           // outdir so esbuild emits app.css alongside app.js
+  outdir: "dist", // outdir so esbuild emits app.css alongside app.js
   bundle: true,
   format: "esm",
   minify: !watch,

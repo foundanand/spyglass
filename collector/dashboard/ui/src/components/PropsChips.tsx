@@ -9,13 +9,7 @@ function fmtVal(v: unknown): string {
   return String(v);
 }
 
-export function PropsChips({
-  props,
-  max = 3,
-}: {
-  props?: Record<string, unknown>;
-  max?: number;
-}) {
+export function PropsChips({ props, max = 3 }: { props?: Record<string, unknown>; max?: number }) {
   const [open, setOpen] = useState(false);
   if (!props || Object.keys(props).length === 0) return null;
   const entries = Object.entries(props);

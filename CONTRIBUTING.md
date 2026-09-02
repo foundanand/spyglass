@@ -46,9 +46,10 @@ changelog/            one file per change-set (see "Changelog", below)
 ```
 
 Package management is split on purpose: the **root is a pnpm workspace** (`sdk`
-+ `examples/*`), while **`collector/dashboard/ui` is npm-managed** with its own
-lockfile and built via `npm` in the Makefile/CI. Don't add the dashboard to the
-pnpm workspace.
+
+- `examples/*`), while **`collector/dashboard/ui` is npm-managed** with its own
+  lockfile and built via `npm` in the Makefile/CI. Don't add the dashboard to the
+  pnpm workspace.
 
 ---
 

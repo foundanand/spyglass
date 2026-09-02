@@ -1,7 +1,7 @@
 # Notes
 
 Project-specific working notes for spyglass: conventions, edge cases, audits,
-runbooks, and decisions that only make sense *inside* this codebase. The
+runbooks, and decisions that only make sense _inside_ this codebase. The
 counterpart to `developer-notes/` — what lives here is deliberately tied to
 spyglass's domain (events, sessions, replay chunks, incident slices) and is not
 meant to be portable.

@@ -24,7 +24,12 @@ interface Event {
 }
 
 function fmtTs(ms: number) {
-  return new Date(ms).toLocaleTimeString([], { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(ms).toLocaleTimeString([], {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 const TYPE_COLOR: Record<string, string> = {
@@ -46,7 +51,8 @@ const BADGE: Record<string, string> = {
 function NetworkDetail({ props }: { props?: Record<string, unknown> }) {
   if (!props) return null;
   const { method, status, duration_ms } = props;
-  const statusClass = Number(status) >= 400 ? "status-error" : Number(status) >= 300 ? "status-warn" : "status-ok";
+  const statusClass =
+    Number(status) >= 400 ? "status-error" : Number(status) >= 300 ? "status-warn" : "status-ok";
   return (
     <span class="network-detail">
       <span class="http-method">{String(method ?? "")}</span>
@@ -103,7 +109,7 @@ export function UserTimeline() {
       const params = new URLSearchParams({ user: u.user_id, limit: "500" });
       const res = await fetch(`/v1/query/events?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json() as { events: Event[] };
+      const d = (await res.json()) as { events: Event[] };
       // Sort all events chronologically for display.
       setEvents((d.events ?? []).sort((a, b) => a.ts - b.ts));
     } catch (e) {
@@ -124,7 +130,9 @@ export function UserTimeline() {
   return (
     <div class="timeline-root">
       <div class="timeline-sidebar">
-        <h2><Icon name="user" /> Users</h2>
+        <h2>
+          <Icon name="user" /> Users
+        </h2>
         {users.length === 0 && (
           <div class="empty-state">
             <Icon name="user" size={24} />
@@ -140,8 +148,12 @@ export function UserTimeline() {
             <Avatar id={u.user_id} size={26} />
             <div class="tl-user-body">
               <span class="tl-user">{u.user_id}</span>
-              <span class="tl-meta">{u.app} · {u.session_count} session{u.session_count !== 1 ? "s" : ""}</span>
-              <span class="tl-meta"><RelTime ts={u.last_seen} /></span>
+              <span class="tl-meta">
+                {u.app} · {u.session_count} session{u.session_count !== 1 ? "s" : ""}
+              </span>
+              <span class="tl-meta">
+                <RelTime ts={u.last_seen} />
+              </span>
             </div>
           </div>
         ))}
@@ -169,10 +181,16 @@ export function UserTimeline() {
               return (
                 <div key={sid} class="tl-session">
                   <div class="tl-session-header">
-                    <span class="tl-session-id" title={sid}>{sid.slice(0, 12)}…</span>
-                    <span class="ts"><Icon name="clock" size={12} /> {fmtTs(start)} – {fmtTs(end)}</span>
+                    <span class="tl-session-id" title={sid}>
+                      {sid.slice(0, 12)}…
+                    </span>
+                    <span class="ts">
+                      <Icon name="clock" size={12} /> {fmtTs(start)} – {fmtTs(end)}
+                    </span>
                     {errorCount > 0 && (
-                      <span class="tl-err-badge">{errorCount} error{errorCount !== 1 ? "s" : ""}</span>
+                      <span class="tl-err-badge">
+                        {errorCount} error{errorCount !== 1 ? "s" : ""}
+                      </span>
                     )}
                   </div>
                   <table class="tl-table">

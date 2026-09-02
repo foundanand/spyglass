@@ -5,7 +5,7 @@ description: What spyglass records, what it never records, and how to tune maski
 
 spyglass is built for closed, internal apps with identified users. That removes
 whole categories of privacy machinery you don't need — and it raises the bar on
-handling the data you *do* collect, because it's tied to real people. The
+handling the data you _do_ collect, because it's tied to real people. The
 defaults are conservative; everything stays on the operator's machine.
 
 ---
@@ -21,11 +21,11 @@ and nowhere else.
 
 Replays mask input values according to `maskInputs`:
 
-| Value | Behavior |
-|---|---|
-| `"password"` *(default)* | Mask `<input type="password">`; other fields recorded. |
-| `"all"` | Mask **every** input's value. Safest. |
-| `"none"` | Record all input values. Use only when you're sure no field is sensitive. |
+| Value                    | Behavior                                                                  |
+| ------------------------ | ------------------------------------------------------------------------- |
+| `"password"` _(default)_ | Mask `<input type="password">`; other fields recorded.                    |
+| `"all"`                  | Mask **every** input's value. Safest.                                     |
+| `"none"`                 | Record all input values. Use only when you're sure no field is sensitive. |
 
 The minimum is always `"password"` — password fields are never recorded in plain
 text by default.
@@ -38,7 +38,7 @@ explicitly allow-list route prefixes:
 
 ```ts
 spyglass.init({
-  network: { bodies: ["/api/orders"] },  // only these get bodies
+  network: { bodies: ["/api/orders"] }, // only these get bodies
 });
 ```
 
@@ -69,7 +69,7 @@ Old data deletes itself on a daily in-process sweep — no cron, no manual clean
 
 ---
 
-## What spyglass deliberately does *not* do
+## What spyglass deliberately does _not_ do
 
 Because it's for authenticated internal tools, several things are out of scope by
 design — less surface area, fewer privacy obligations:

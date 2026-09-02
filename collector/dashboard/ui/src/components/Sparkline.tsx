@@ -25,10 +25,11 @@ export function Sparkline({
   const span = max - min || 1;
   const n = values.length;
   const dx = n > 1 ? (width - pad * 2) / (n - 1) : 0;
-  const y = (v: number) =>
-    height - pad - ((v - min) / span) * (height - pad * 2);
+  const y = (v: number) => height - pad - ((v - min) / span) * (height - pad * 2);
   const pts = values.map((v, i) => [pad + i * dx, y(v)] as const);
-  const line = pts.map(([x, yy], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${yy.toFixed(1)}`).join(" ");
+  const line = pts
+    .map(([x, yy], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${yy.toFixed(1)}`)
+    .join(" ");
   const area = `${line} L${pts[n - 1][0].toFixed(1)} ${height} L${pts[0][0].toFixed(1)} ${height} Z`;
   const gid = `sg${gradSeq++}`;
   return (

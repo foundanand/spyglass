@@ -26,7 +26,14 @@ afterEach(() => {
 describe("enqueue()", () => {
   it("flushes immediately at 20 events", () => {
     for (let i = 0; i < 20; i++) {
-      enqueue({ ts: i, app: "demo", user_id: "u1", session_id: "s1", type: "event", name: `e${i}` });
+      enqueue({
+        ts: i,
+        app: "demo",
+        user_id: "u1",
+        session_id: "s1",
+        type: "event",
+        name: `e${i}`,
+      });
     }
     expect(mockFetch).toHaveBeenCalledOnce();
   });
@@ -40,7 +47,14 @@ describe("enqueue()", () => {
 
   it("does not double-flush if already at 20", async () => {
     for (let i = 0; i < 20; i++) {
-      enqueue({ ts: i, app: "demo", user_id: "u1", session_id: "s1", type: "event", name: `e${i}` });
+      enqueue({
+        ts: i,
+        app: "demo",
+        user_id: "u1",
+        session_id: "s1",
+        type: "event",
+        name: `e${i}`,
+      });
     }
     await vi.runAllTimersAsync();
     expect(mockFetch).toHaveBeenCalledOnce();
@@ -48,7 +62,14 @@ describe("enqueue()", () => {
 
   it("sends the correct URL and app key", () => {
     for (let i = 0; i < 20; i++) {
-      enqueue({ ts: i, app: "demo", user_id: "u1", session_id: "s1", type: "event", name: `e${i}` });
+      enqueue({
+        ts: i,
+        app: "demo",
+        user_id: "u1",
+        session_id: "s1",
+        type: "event",
+        name: `e${i}`,
+      });
     }
     const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://localhost:7474/v1/events");

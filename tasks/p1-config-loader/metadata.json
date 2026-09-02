@@ -3,13 +3,8 @@
   "phase": 1,
   "component": "collector",
   "title": "Config loading + validation",
-  "depends_on": [
-    "p0-collector-skeleton",
-    "p0-config-example"
-  ],
-  "src_files": [
-    "collector/config.go"
-  ],
+  "depends_on": ["p0-collector-skeleton", "p0-config-example"],
+  "src_files": ["collector/config.go"],
   "exit_check": "Loads spyglass.config.json, resolves env: refs, validates app keys; table-driven test green",
   "refs": "\u00a76",
   "status": "done"

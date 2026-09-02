@@ -45,8 +45,11 @@ const PLUGIN_EVENT = 6;
 const CONSOLE_PLUGIN = "@rrweb/rrweb-plugin-console-record";
 
 const DOT_COLOR: Record<string, string> = {
-  event: "var(--c-event)", pageview: "var(--c-pageview)", error: "var(--c-error)",
-  network: "var(--c-network)", bug_report: "var(--c-bug)",
+  event: "var(--c-event)",
+  pageview: "var(--c-pageview)",
+  error: "var(--c-error)",
+  network: "var(--c-network)",
+  bug_report: "var(--c-bug)",
 };
 
 function fmtDur(ms: number): string {
@@ -66,7 +69,10 @@ function fmtHttp(ms: number): string {
 // Index of the last item with ts <= nowTs (for the "now" row highlight).
 function lastIdxLe(items: { ts: number }[], nowTs: number): number {
   let idx = -1;
-  for (let i = 0; i < items.length; i++) { if (items[i].ts <= nowTs) idx = i; else break; }
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].ts <= nowTs) idx = i;
+    else break;
+  }
   return idx;
 }
 
@@ -77,23 +83,41 @@ function markersFromEvents(events: SpyEvent[], firstTs: number): Marker[] {
     if (offset < 0) continue;
     if (e.type === "error") out.push({ offset, kind: "error", label: `error: ${e.name}` });
     else if (e.type === "bug_report") out.push({ offset, kind: "bug", label: `report: ${e.name}` });
-    else if (e.type === "pageview") out.push({ offset, kind: "pageview", label: e.name || e.url || "pageview" });
+    else if (e.type === "pageview")
+      out.push({ offset, kind: "pageview", label: e.name || e.url || "pageview" });
   }
   return out;
 }
 
 function InspectorConsole({
-  logs, nowIdx, onSeek,
-}: { logs: ConsoleLine[]; nowIdx: number; onSeek: (ts: number) => void }) {
+  logs,
+  nowIdx,
+  onSeek,
+}: {
+  logs: ConsoleLine[];
+  nowIdx: number;
+  onSeek: (ts: number) => void;
+}) {
   const [level, setLevel] = useState("");
   if (logs.length === 0) return <p class="empty">No console output in this replay</p>;
   const shown = level ? logs.filter((l) => l.level === level) : logs;
   return (
     <>
-      <div class="console-filters" style="padding:0.4rem 0.75rem;border-bottom:1px solid var(--border)">
-        <button class={`seg-btn${level === "" ? " active" : ""}`} onClick={() => setLevel("")}>all</button>
+      <div
+        class="console-filters"
+        style="padding:0.4rem 0.75rem;border-bottom:1px solid var(--border)"
+      >
+        <button class={`seg-btn${level === "" ? " active" : ""}`} onClick={() => setLevel("")}>
+          all
+        </button>
         {["log", "warn", "error"].map((lv) => (
-          <button key={lv} class={`seg-btn${level === lv ? " active" : ""}`} onClick={() => setLevel(lv)}>{lv}</button>
+          <button
+            key={lv}
+            class={`seg-btn${level === lv ? " active" : ""}`}
+            onClick={() => setLevel(lv)}
+          >
+            {lv}
+          </button>
         ))}
       </div>
       <div class="console-lines">
@@ -106,7 +130,9 @@ function InspectorConsole({
               onClick={() => onSeek(l.ts)}
               title="Jump to this moment"
             >
-              <span class="console-ts">{new Date(l.ts).toLocaleTimeString([], { hour12: false })}</span>
+              <span class="console-ts">
+                {new Date(l.ts).toLocaleTimeString([], { hour12: false })}
+              </span>
               <span class="console-level">{l.level}</span>
               <span class="console-msg">
                 {l.payload.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ")}
@@ -120,8 +146,14 @@ function InspectorConsole({
 }
 
 function InspectorNetwork({
-  net, nowIdx, onSeek,
-}: { net: SpyEvent[]; nowIdx: number; onSeek: (ts: number) => void }) {
+  net,
+  nowIdx,
+  onSeek,
+}: {
+  net: SpyEvent[];
+  nowIdx: number;
+  onSeek: (ts: number) => void;
+}) {
   if (net.length === 0) return <p class="empty">No network requests captured</p>;
   const starts = net.map((e) => e.ts);
   const ends = net.map((e) => e.ts + (Number(e.props?.duration_ms) || 0));
@@ -135,7 +167,14 @@ function InspectorNetwork({
         const dur = Number(e.props?.duration_ms ?? 0);
         const left = ((e.ts - winStart) / span) * 100;
         const width = Math.max(2, (dur / span) * 100);
-        const statusClass = status >= 500 ? "status-5xx" : status >= 400 ? "status-4xx" : status >= 300 ? "status-3xx" : "status-2xx";
+        const statusClass =
+          status >= 500
+            ? "status-5xx"
+            : status >= 400
+              ? "status-4xx"
+              : status >= 300
+                ? "status-3xx"
+                : "status-2xx";
         const barColor = status >= 400 ? "var(--c-error)" : "var(--accent)";
         return (
           <div
@@ -145,10 +184,15 @@ function InspectorNetwork({
             title="Jump to this moment"
           >
             <span class="http-method">{method}</span>
-            <span class="insp-net-url" title={e.name}>{e.name}</span>
+            <span class="insp-net-url" title={e.name}>
+              {e.name}
+            </span>
             <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
             <div class="insp-net-track">
-              <div class="insp-net-bar" style={`left:${left}%;width:${width}%;background:${barColor}`} />
+              <div
+                class="insp-net-bar"
+                style={`left:${left}%;width:${width}%;background:${barColor}`}
+              />
             </div>
             <span class="insp-net-meta">
               <span class="http-dur">{dur ? fmtHttp(dur) : "—"}</span>
@@ -161,8 +205,14 @@ function InspectorNetwork({
 }
 
 function InspectorEvents({
-  events, nowIdx, onSeek,
-}: { events: SpyEvent[]; nowIdx: number; onSeek: (ts: number) => void }) {
+  events,
+  nowIdx,
+  onSeek,
+}: {
+  events: SpyEvent[];
+  nowIdx: number;
+  onSeek: (ts: number) => void;
+}) {
   if (events.length === 0) return <p class="empty">No events in this session</p>;
   return (
     <div>
@@ -173,7 +223,9 @@ function InspectorEvents({
           onClick={() => onSeek(e.ts)}
           title="Jump to this moment"
         >
-          <span class="insp-ev-time">{new Date(e.ts).toLocaleTimeString([], { hour12: false })}</span>
+          <span class="insp-ev-time">
+            {new Date(e.ts).toLocaleTimeString([], { hour12: false })}
+          </span>
           <span class="insp-ev-dot" style={`background:${DOT_COLOR[e.type] ?? "var(--muted)"}`} />
           <span class="insp-ev-name">{e.name || e.url || e.type}</span>
         </div>
@@ -217,7 +269,8 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
     const q = search.trim().toLowerCase();
     return sessions.filter((s) => {
       if (errorsOnly && !(s.error_count && s.error_count > 0)) return false;
-      if (q && !(s.user_id.toLowerCase().includes(q) || s.app.toLowerCase().includes(q))) return false;
+      if (q && !(s.user_id.toLowerCase().includes(q) || s.app.toLowerCase().includes(q)))
+        return false;
       return true;
     });
   }, [sessions, search, errorsOnly]);
@@ -238,12 +291,18 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
 
     try {
       if (playerRef.current) {
-        try { playerRef.current.destroy(); } catch { /* noop */ }
+        try {
+          playerRef.current.destroy();
+        } catch {
+          /* noop */
+        }
         playerRef.current = null;
       }
       if (playerContainerRef.current) playerContainerRef.current.innerHTML = "";
 
-      const manifest = await fetch(`/v1/sessions/${session.session_id}/replay`).then((r) => r.json());
+      const manifest = await fetch(`/v1/sessions/${session.session_id}/replay`).then((r) =>
+        r.json(),
+      );
       const chunks: ChunkInfo[] = manifest.chunks ?? [];
       if (chunks.length === 0) {
         setLoading(false);
@@ -257,7 +316,10 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
         for (const ev of evts) {
           allEvents.push(ev);
           const e = ev as Record<string, unknown>;
-          if (e.type === PLUGIN_EVENT && (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN) {
+          if (
+            e.type === PLUGIN_EVENT &&
+            (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN
+          ) {
             const p = (e.data as Record<string, unknown>).payload as Record<string, unknown>;
             logs.push({
               ts: e.timestamp as number,
@@ -285,7 +347,10 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
           setNowTs((prev) => (prev === absTs ? prev : absTs));
           const ls = logsRef.current;
           let idx = -1;
-          for (let i = 0; i < ls.length; i++) { if (ls[i].ts <= absTs) idx = i; else break; }
+          for (let i = 0; i < ls.length; i++) {
+            if (ls[i].ts <= absTs) idx = i;
+            else break;
+          }
           setNowIdx((prev) => (prev === idx ? prev : idx));
         });
 
@@ -293,11 +358,15 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
         try {
           const evs: SpyEvent[] = await fetch(
             `/v1/query/events?session=${encodeURIComponent(session.session_id)}&limit=500`,
-          ).then((r) => r.json()).then((d) => d.events ?? []);
+          )
+            .then((r) => r.json())
+            .then((d) => d.events ?? []);
           evs.sort((a, b) => a.ts - b.ts);
           setEvents(evs);
           playerRef.current.setMarkers(markersFromEvents(evs, firstTs));
-        } catch { /* markers/tabs are best-effort */ }
+        } catch {
+          /* markers/tabs are best-effort */
+        }
       }
     } catch (err) {
       console.error("replay load error", err);
@@ -311,7 +380,9 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
   return (
     <div class="replay-root">
       <div class="sessions-sidebar">
-        <h2><Icon name="play" /> Sessions</h2>
+        <h2>
+          <Icon name="play" /> Sessions
+        </h2>
         <div class="sidebar-filters">
           <input
             style="flex:1;min-width:0"
@@ -328,7 +399,10 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
           </button>
         </div>
         {sessions.length === 0 && (
-          <div class="empty-state"><Icon name="play" size={26} /><p>No sessions yet</p></div>
+          <div class="empty-state">
+            <Icon name="play" size={26} />
+            <p>No sessions yet</p>
+          </div>
         )}
         {filtered.map((s) => {
           const dur = s.last_seen - s.started_at;
@@ -341,11 +415,21 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
               <Avatar id={s.user_id} size={26} />
               <div class="session-body">
                 <span class="session-user">{s.user_id}</span>
-                <span class="session-meta"><RelTime ts={s.last_seen} /> · {s.app}</span>
+                <span class="session-meta">
+                  <RelTime ts={s.last_seen} /> · {s.app}
+                </span>
                 <div class="session-badges">
-                  <span class="mini-badge dur"><Icon name="clock" size={10} /> {fmtDur(dur)}</span>
-                  {s.error_count ? <span class="mini-badge err"><Icon name="error" size={10} /> {s.error_count}</span> : null}
-                  <span class="session-chunks">{s.chunk_count} chunk{s.chunk_count !== 1 ? "s" : ""}</span>
+                  <span class="mini-badge dur">
+                    <Icon name="clock" size={10} /> {fmtDur(dur)}
+                  </span>
+                  {s.error_count ? (
+                    <span class="mini-badge err">
+                      <Icon name="error" size={10} /> {s.error_count}
+                    </span>
+                  ) : null}
+                  <span class="session-chunks">
+                    {s.chunk_count} chunk{s.chunk_count !== 1 ? "s" : ""}
+                  </span>
                 </div>
               </div>
             </div>
@@ -355,7 +439,10 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
 
       <div class="replay-main">
         {!selected && (
-          <div class="empty-state"><Icon name="play" size={30} /><p>Select a session to watch its replay</p></div>
+          <div class="empty-state">
+            <Icon name="play" size={30} />
+            <p>Select a session to watch its replay</p>
+          </div>
         )}
         {selected && (
           <>
@@ -363,7 +450,11 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
               <Avatar id={selected.user_id} size={24} />
               <strong>{selected.user_id}</strong>
               <span class="ts">{new Date(selected.started_at).toLocaleString()}</span>
-              {loading && <span class="live-tag"><span class="live-dot" /> loading</span>}
+              {loading && (
+                <span class="live-tag">
+                  <span class="live-dot" /> loading
+                </span>
+              )}
             </div>
 
             <div class="replay-workspace">
@@ -374,20 +465,44 @@ export function ReplayPlayer({ initialSessionId }: { initialSessionId?: string }
 
               <div class="replay-inspector">
                 <div class="inspector-tabs" role="tablist">
-                  <button class={`inspector-tab${tab === "console" ? " active" : ""}`} role="tab" aria-selected={tab === "console"} onClick={() => setTab("console")}>
-                    <Icon name="network" size={13} /> Console <span class="tab-count">{consoleLogs.length}</span>
+                  <button
+                    class={`inspector-tab${tab === "console" ? " active" : ""}`}
+                    role="tab"
+                    aria-selected={tab === "console"}
+                    onClick={() => setTab("console")}
+                  >
+                    <Icon name="network" size={13} /> Console{" "}
+                    <span class="tab-count">{consoleLogs.length}</span>
                   </button>
-                  <button class={`inspector-tab${tab === "network" ? " active" : ""}`} role="tab" aria-selected={tab === "network"} onClick={() => setTab("network")}>
-                    <Icon name="network" size={13} /> Network <span class="tab-count">{net.length}</span>
+                  <button
+                    class={`inspector-tab${tab === "network" ? " active" : ""}`}
+                    role="tab"
+                    aria-selected={tab === "network"}
+                    onClick={() => setTab("network")}
+                  >
+                    <Icon name="network" size={13} /> Network{" "}
+                    <span class="tab-count">{net.length}</span>
                   </button>
-                  <button class={`inspector-tab${tab === "events" ? " active" : ""}`} role="tab" aria-selected={tab === "events"} onClick={() => setTab("events")}>
-                    <Icon name="clock" size={13} /> Events <span class="tab-count">{events.length}</span>
+                  <button
+                    class={`inspector-tab${tab === "events" ? " active" : ""}`}
+                    role="tab"
+                    aria-selected={tab === "events"}
+                    onClick={() => setTab("events")}
+                  >
+                    <Icon name="clock" size={13} /> Events{" "}
+                    <span class="tab-count">{events.length}</span>
                   </button>
                 </div>
                 <div class="inspector-body">
-                  {tab === "console" && <InspectorConsole logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />}
-                  {tab === "network" && <InspectorNetwork net={net} nowIdx={netNowIdx} onSeek={seekToTs} />}
-                  {tab === "events" && <InspectorEvents events={events} nowIdx={evNowIdx} onSeek={seekToTs} />}
+                  {tab === "console" && (
+                    <InspectorConsole logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />
+                  )}
+                  {tab === "network" && (
+                    <InspectorNetwork net={net} nowIdx={netNowIdx} onSeek={seekToTs} />
+                  )}
+                  {tab === "events" && (
+                    <InspectorEvents events={events} nowIdx={evNowIdx} onSeek={seekToTs} />
+                  )}
                 </div>
               </div>
             </div>

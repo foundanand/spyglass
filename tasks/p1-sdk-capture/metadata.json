@@ -3,13 +3,8 @@
   "phase": 1,
   "component": "sdk",
   "title": "capture(), pageview(), setUser()",
-  "depends_on": [
-    "p1-sdk-queue",
-    "p1-sdk-session"
-  ],
-  "src_files": [
-    "sdk/src/capture.ts"
-  ],
+  "depends_on": ["p1-sdk-queue", "p1-sdk-session"],
+  "src_files": ["sdk/src/capture.ts"],
   "exit_check": "capture/pageview/setUser enqueue correctly-shaped events; vitest",
   "refs": "\u00a75",
   "status": "done"

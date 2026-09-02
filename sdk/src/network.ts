@@ -99,8 +99,7 @@ export function startNetworkTracking(): void {
     if (isOwn(url)) return _origFetch(input, init);
 
     const method = (
-      init?.method ??
-      (input instanceof Request ? input.method : "GET")
+      init?.method ?? (input instanceof Request ? input.method : "GET")
     ).toUpperCase();
 
     const startTs = Date.now();
@@ -115,7 +114,13 @@ export function startNetworkTracking(): void {
           ...base(),
           type: "network",
           name: url,
-          props: { method, status: 0, duration_ms: Date.now() - startTs, req_size: reqSize, res_size: 0 },
+          props: {
+            method,
+            status: 0,
+            duration_ms: Date.now() - startTs,
+            req_size: reqSize,
+            res_size: 0,
+          },
         });
       }
       throw err;
@@ -203,8 +208,7 @@ export function startNetworkTracking(): void {
 
         if (bodyAllowed(state.url)) {
           try {
-            const text =
-              typeof xhr.responseText === "string" ? xhr.responseText : "";
+            const text = typeof xhr.responseText === "string" ? xhr.responseText : "";
             resSize = resSize || new TextEncoder().encode(text).byteLength;
             props.res_size = resSize;
             props.body_excerpt = truncate(text);

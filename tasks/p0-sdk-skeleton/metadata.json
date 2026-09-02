@@ -3,9 +3,7 @@
   "phase": 0,
   "component": "sdk",
   "title": "@spyglass/sdk package + esbuild + vitest",
-  "depends_on": [
-    "p0-monorepo"
-  ],
+  "depends_on": ["p0-monorepo"],
   "src_files": [
     "sdk/package.json",
     "sdk/tsconfig.json",

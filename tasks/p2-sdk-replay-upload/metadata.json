@@ -3,13 +3,8 @@
   "phase": 2,
   "component": "sdk",
   "title": "Replay upload + backpressure",
-  "depends_on": [
-    "p2-sdk-chunk-gzip",
-    "p1-sdk-queue"
-  ],
-  "src_files": [
-    "sdk/src/replay/upload.ts"
-  ],
+  "depends_on": ["p2-sdk-chunk-gzip", "p1-sdk-queue"],
+  "src_files": ["sdk/src/replay/upload.ts"],
   "exit_check": "POST /v1/replay?session=&seq=; under backpressure, drop replay before events",
   "refs": "§5",
   "status": "done"

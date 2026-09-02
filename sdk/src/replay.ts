@@ -43,13 +43,14 @@ export async function startReplay(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const plugins: any[] = consolePlugin ? [consolePlugin] : [];
 
-  stopFn = record({
-    emit(event) {
-      buffer.push(event as eventWithTime);
-      scheduleFlush();
-    },
-    plugins,
-  }) ?? null;
+  stopFn =
+    record({
+      emit(event) {
+        buffer.push(event as eventWithTime);
+        scheduleFlush();
+      },
+      plugins,
+    }) ?? null;
 }
 
 export function stopReplay(): void {

@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _reset, init } from "./core.js";
 import { _resetQueue, _queueLength, flush } from "./queue.js";
 import { _resetSession } from "./session.js";
-import { startNetworkTracking, stopNetworkTracking, _resetNetwork, _isInstalled, sanitizedHeaders } from "./network.js";
+import {
+  startNetworkTracking,
+  stopNetworkTracking,
+  _resetNetwork,
+  _isInstalled,
+  sanitizedHeaders,
+} from "./network.js";
 
 let capturedFetch: typeof globalThis.fetch;
 
@@ -89,10 +95,10 @@ describe("fetch patching", () => {
   it("records status 0 on network error", async () => {
     setup();
     // Make fetch throw a network error.
-    (capturedFetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new TypeError("failed to fetch"));
-    await expect(
-      window.fetch("https://api.example.com/fail")
-    ).rejects.toThrow("failed to fetch");
+    (capturedFetch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new TypeError("failed to fetch"),
+    );
+    await expect(window.fetch("https://api.example.com/fail")).rejects.toThrow("failed to fetch");
     const b = lastBatch();
     expect(b.events[0].props.status).toBe(0);
   });
@@ -107,7 +113,10 @@ describe("fetch patching", () => {
   it("captures body when URL matches network.bodies allowlist", async () => {
     setup({ bodies: ["/api/"] });
     (capturedFetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      new Response("sensitive response", { status: 200, headers: { "content-type": "text/plain" } }),
+      new Response("sensitive response", {
+        status: 200,
+        headers: { "content-type": "text/plain" },
+      }),
     );
     await window.fetch("http://app.internal/api/orders");
     const b = lastBatch();

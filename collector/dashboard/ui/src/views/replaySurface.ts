@@ -61,7 +61,8 @@ function computeIdle(events: unknown[], startTime: number, total: number): IdleS
   for (const ev of events) {
     const e = ev as { type?: number; timestamp?: number; data?: { source?: number } };
     if (typeof e.timestamp !== "number") continue;
-    if (e.type === 2) acts.push(e.timestamp); // FullSnapshot
+    if (e.type === 2)
+      acts.push(e.timestamp); // FullSnapshot
     else if (e.type === 3 && e.data && INTERACTIVE_SOURCES.has(e.data.source ?? -1)) {
       acts.push(e.timestamp);
     }
@@ -191,8 +192,7 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     const p = pct(cur);
     activeFill.style.width = `${p}%`;
     playhead.style.left = `${p}%`;
-    time.innerHTML =
-      `${fmt(cur)} / ${fmt(total)} <span class="active-t">· ${fmt(activeTotal)} active</span>`;
+    time.innerHTML = `${fmt(cur)} / ${fmt(total)} <span class="active-t">· ${fmt(activeTotal)} active</span>`;
     if (timeCb) timeCb(cur);
   };
 
@@ -280,7 +280,11 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
   track.addEventListener("pointerup", (e) => {
     scrubbing = false;
     scrubTip.classList.remove("show");
-    try { track.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    try {
+      track.releasePointerCapture(e.pointerId);
+    } catch {
+      /* noop */
+    }
   });
 
   playBtn.addEventListener("click", () => (playing ? pause() : play()));

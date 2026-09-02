@@ -3,14 +3,8 @@
   "phase": 1,
   "component": "dashboard",
   "title": "Preact dashboard shell + Go embed",
-  "depends_on": [
-    "p0-collector-skeleton",
-    "p0-monorepo"
-  ],
-  "src_files": [
-    "collector/dashboard/ui/",
-    "collector/dashboard/embed.go"
-  ],
+  "depends_on": ["p0-collector-skeleton", "p0-monorepo"],
+  "src_files": ["collector/dashboard/ui/", "collector/dashboard/embed.go"],
   "exit_check": "`GET /` serves the embedded Preact SPA built by esbuild",
   "refs": "\u00a73, \u00a77",
   "status": "done"

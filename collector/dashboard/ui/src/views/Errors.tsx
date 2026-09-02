@@ -36,7 +36,13 @@ function StackRow({ stack }: { stack?: unknown }) {
   if (!stack || typeof stack !== "string") return null;
   return (
     <>
-      <button class="stack-toggle" onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}>
+      <button
+        class="stack-toggle"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+      >
         {open ? "▲ hide" : "▼ stack"}
       </button>
       {open && <pre class="stack-trace">{stack}</pre>}
@@ -60,7 +66,7 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
       if (filterUser) params.set("user", filterUser);
       const res = await fetch(`/v1/query/events?${params}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json() as { events: Event[] };
+      const d = (await res.json()) as { events: Event[] };
       setEvents(d.events ?? []);
     } catch (e) {
       setFetchError(String(e));
@@ -69,7 +75,9 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
     }
   }
 
-  useEffect(() => { void load(); }, [filterUser, typeFilter]);
+  useEffect(() => {
+    void load();
+  }, [filterUser, typeFilter]);
 
   const errorCount = events.filter((e) => e.type === "error").length;
   const reportCount = events.filter((e) => e.type === "bug_report").length;
@@ -86,7 +94,9 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
       <div class="toolbar">
         <select
           value={typeFilter}
-          onChange={(e) => setTypeFilter((e.target as HTMLSelectElement).value as typeof typeFilter)}
+          onChange={(e) =>
+            setTypeFilter((e.target as HTMLSelectElement).value as typeof typeFilter)
+          }
         >
           <option value="error">errors</option>
           <option value="bug_report">bug reports</option>
@@ -97,7 +107,9 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
           value={filterUser}
           onInput={(e) => setFilterUser((e.target as HTMLInputElement).value)}
         />
-        <button onClick={load}><Icon name="refresh" /> Refresh</button>
+        <button onClick={load}>
+          <Icon name="refresh" /> Refresh
+        </button>
         {loading && <span class="ts">Loading…</span>}
       </div>
       {fetchError && <div style="color:var(--red);margin-bottom:1rem">{fetchError}</div>}
@@ -119,7 +131,16 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
             <tr>
               <td colSpan={7}>
                 <div class="empty-state">
-                  <Icon name={typeFilter === "error" ? "error" : typeFilter === "bug_report" ? "bug" : "inbox"} size={24} />
+                  <Icon
+                    name={
+                      typeFilter === "error"
+                        ? "error"
+                        : typeFilter === "bug_report"
+                          ? "bug"
+                          : "inbox"
+                    }
+                    size={24}
+                  />
                   <p>no events — throw something or submit a report</p>
                 </div>
               </td>
@@ -133,8 +154,17 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
               title="Open incident view"
             >
               <td class="ts">{fmtTs(e.ts)}</td>
-              <td><span class={`badge badge-${e.type}`}>{e.type === "bug_report" ? "report" : "error"}</span></td>
-              <td><span style="display:inline-flex;align-items:center;gap:6px"><Avatar id={e.user_id} size={18} />{e.user_id}</span></td>
+              <td>
+                <span class={`badge badge-${e.type}`}>
+                  {e.type === "bug_report" ? "report" : "error"}
+                </span>
+              </td>
+              <td>
+                <span style="display:inline-flex;align-items:center;gap:6px">
+                  <Avatar id={e.user_id} size={18} />
+                  {e.user_id}
+                </span>
+              </td>
               <td class="err-msg">
                 <span class="err-name">{e.name}</span>
                 {e.type === "error" && <StackRow stack={e.props?.stack} />}
@@ -143,8 +173,12 @@ export function Errors({ onOpenIncident }: ErrorsProps) {
                 )}
               </td>
               <td class="ts">{String(e.props?.source ?? e.url ?? "")}</td>
-              <td class="ts" title={e.session_id}>{e.session_id.slice(0, 12)}…</td>
-              <td class="row-chevron"><Icon name="chevron-right" /></td>
+              <td class="ts" title={e.session_id}>
+                {e.session_id.slice(0, 12)}…
+              </td>
+              <td class="row-chevron">
+                <Icon name="chevron-right" />
+              </td>
             </tr>
           ))}
         </tbody>

@@ -3,16 +3,16 @@
 Reusable design patterns extracted from this project. Unlike `notes/` (which
 captures project-specific conventions like the collector's disk layout or the
 SDK's batching quirks), this folder is **portable**: each note is written so it
-can be lifted into a *different* codebase with minimal rework.
+can be lifted into a _different_ codebase with minimal rework.
 
 When you find yourself thinking "this was a clever idea, I want it in my next
 project too", drop a note here.
 
 ## Index
 
-| Note | What it's for |
-| ---- | ------------- |
-| _(none yet)_ | |
+| Note         | What it's for |
+| ------------ | ------------- |
+| _(none yet)_ |               |
 
 ## Conventions for writing a note
 

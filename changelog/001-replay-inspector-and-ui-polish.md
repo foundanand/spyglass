@@ -46,4 +46,4 @@ The rest is global polish that makes the app feel deliberately designed rather t
 
 ---
 
-*No local session data exists in `./data`, so the replay rendering (idle bands, scrub tooltip, synced inspector) was verified structurally — builds green, all new classes/components present in the shipped bundle — but not visually against a live recording. Point the SDK at a running collector via `examples/nextjs-demo` to eyeball it end-to-end.*
+_No local session data exists in `./data`, so the replay rendering (idle bands, scrub tooltip, synced inspector) was verified structurally — builds green, all new classes/components present in the shipped bundle — but not visually against a live recording. Point the SDK at a running collector via `examples/nextjs-demo` to eyeball it end-to-end._

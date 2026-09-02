@@ -3,13 +3,8 @@
   "phase": 1,
   "component": "dashboard",
   "title": "Live feed view + filters",
-  "depends_on": [
-    "p1-dashboard-shell",
-    "p1-query-events"
-  ],
-  "src_files": [
-    "collector/dashboard/ui/views/LiveFeed.tsx"
-  ],
+  "depends_on": ["p1-dashboard-shell", "p1-query-events"],
+  "src_files": ["collector/dashboard/ui/views/LiveFeed.tsx"],
   "exit_check": "Live feed lists events from /v1/query/events, filterable by user/type/app \u2014 PHASE 1 EXIT",
   "refs": "\u00a77.1",
   "status": "done"

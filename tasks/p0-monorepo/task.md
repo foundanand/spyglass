@@ -9,7 +9,7 @@ The repo has no toolchain. Before any code, we need the pnpm workspace that ties
 
 ## Your job
 
-Create the root `package.json` (private, name `spyglass`, packageManager pnpm), `pnpm-workspace.yaml` listing `sdk` and `examples/*`, a `.gitignore` (node_modules, data/, dist/, *.db, .source, Go build artifacts), a `tsconfig.base.json` with `strict: true` for the SDK to extend, and a shared prettier config. `git init` the repo.
+Create the root `package.json` (private, name `spyglass`, packageManager pnpm), `pnpm-workspace.yaml` listing `sdk` and `examples/*`, a `.gitignore` (node_modules, data/, dist/, \*.db, .source, Go build artifacts), a `tsconfig.base.json` with `strict: true` for the SDK to extend, and a shared prettier config. `git init` the repo.
 
 ## Acceptance
 
