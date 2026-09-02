@@ -1,0 +1,300 @@
+{
+  "schema": "spyglass-todo/v1",
+  "note": "The live backlog. tasks/ records the original build and has drifted (see todo-012); this folder is what is actually outstanding. Most of it was found by integrating spyglass into a real app and then trying to answer questions with the data \u2014 the P0s are bugs that only surfaced from looking at what was recorded, not from reading the code.",
+  "priorities": {
+    "P0": "The data is wrong, lost, or the config lies. Fix before building on it.",
+    "P1": "The tool cannot answer a question people immediately ask of it.",
+    "P2": "Real depth, but the tool is useful without it.",
+    "P3": "Reach and ops. Worth doing, not worth blocking on."
+  },
+  "todos": [
+    {
+      "id": "todo-001",
+      "priority": "P0",
+      "component": "sdk+collector",
+      "title": "Replay chunks overwrite each other across page loads",
+      "file": "001-replay-chunk-overwrite.md",
+      "depends_on": [],
+      "src_files": ["sdk/src/replay.ts", "collector/ingest/replay.go"],
+      "evidence": "Session 2fc12a07: 50 chunk uploads, 18 files on disk, seqs [1..18] contiguous \u2014 32 chunks silently overwritten",
+      "exit_check": "A session that reloads mid-recording keeps every chunk; duplicate seq cannot truncate an existing file",
+      "effort": "S",
+      "status": "todo"
+    },
+    {
+      "id": "todo-002",
+      "priority": "P0",
+      "component": "sdk",
+      "title": "autocapture is documented, typed, defaulted \u2014 and unimplemented",
+      "file": "002-autocapture-is-a-no-op.md",
+      "depends_on": [],
+      "src_files": ["sdk/src/types.ts", "sdk/src/core.ts", "docs/sdk.mdx"],
+      "evidence": "Only 4 mentions repo-wide, all declaration or comment; no autocapture module exists; nothing reads cfg.autocapture",
+      "exit_check": "Either the option is gone and the docs say why, or it works and ships zero bytes when off",
+      "effort": "XS if cut, M if built",
+      "blocked_on_decision": "Is autocapture wanted at all, given replay records every interaction visually?",
+      "status": "todo"
+    },
+    {
+      "id": "todo-003",
+      "priority": "P1",
+      "component": "sdk+collector",
+      "title": "No device, viewport, browser or referrer is recorded at all",
+      "file": "003-device-and-environment-context.md",
+      "depends_on": [],
+      "src_files": ["sdk/src/context.ts", "collector/ingest/events.go", "collector/store/store.go"],
+      "evidence": "No matches for userAgent/innerWidth/screen/referrer in sdk/src; sanitizedHeaders() never called; sessions.meta always NULL (events.go:115)",
+      "exit_check": "Session rows carry populated meta; at least one dashboard view slices by it; context:false records none of it; air-gap test green",
+      "effort": "M",
+      "unblocks": ["todo-005", "todo-006"],
+      "status": "todo"
+    },
+    {
+      "id": "todo-004",
+      "priority": "P1",
+      "component": "dashboard",
+      "title": "Every dashboard query is all-time; there is no date picker",
+      "file": "004-dashboard-time-range.md",
+      "depends_on": [],
+      "src_files": [
+        "collector/dashboard/ui/src/App.tsx",
+        "collector/dashboard/ui/src/views/Insights.tsx"
+      ],
+      "evidence": "Every fetch in dashboard/ui/src omits from/to; endpoints already accept both",
+      "exit_check": "One range control drives every panel, round-trips through the URL, defaults to 30 days",
+      "effort": "S-M",
+      "status": "todo"
+    },
+    {
+      "id": "todo-005",
+      "priority": "P1",
+      "component": "collector+dashboard",
+      "title": "No way to save a question, so every session starts from scratch",
+      "file": "005-saved-views-and-custom-dashboards.md",
+      "depends_on": ["todo-003", "todo-004"],
+      "src_files": [
+        "collector/store/migrations/002_views.sql",
+        "collector/dashboard/ui/src/views/Board.tsx"
+      ],
+      "exit_check": "A configured panel is a shareable URL; a named view survives a restart; a board renders several",
+      "effort": "S (step 1) / M (steps 2-3)",
+      "note": "The stated product direction. Depends on todo-003 or it ships a builder over three dimensions.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-006",
+      "priority": "P2",
+      "component": "sdk+collector",
+      "title": "Cannot slice by anything about the user beyond their id",
+      "file": "006-segments-and-user-properties.md",
+      "depends_on": ["todo-003"],
+      "src_files": ["sdk/src/core.ts", "collector/store/flows.go", "collector/query/flows.go"],
+      "exit_check": "group=trait:<key> works; a trait filter narrows a query; a hostile trait key cannot alter the SQL",
+      "effort": "M, smaller if todo-003 built the grouping path",
+      "status": "todo"
+    },
+    {
+      "id": "todo-007",
+      "priority": "P2",
+      "component": "collector",
+      "title": "The funnel counts who reached a step, never how long it took",
+      "file": "007-funnel-step-timing.md",
+      "depends_on": [],
+      "src_files": ["collector/store/store.go", "collector/query/funnel.go"],
+      "exit_check": "p50/p90 per step transition; a gap past the cap is excluded from timing but still counted as a conversion",
+      "effort": "S-M",
+      "status": "todo"
+    },
+    {
+      "id": "todo-008",
+      "priority": "P2",
+      "component": "collector+dashboard",
+      "title": "Queries cap at 500 rows with no cursor and no export",
+      "file": "008-event-pagination-and-export.md",
+      "depends_on": [],
+      "src_files": [
+        "collector/store/store.go",
+        "collector/query/csv.go",
+        "collector/dashboard/ui/src/views/LiveFeed.tsx"
+      ],
+      "evidence": "QueryEvents clamps to 500 with no OFFSET or cursor; one real 25-minute session held 286 events",
+      "exit_check": "Live feed pages backwards stably while new events arrive; any view downloads as CSV with the same filters",
+      "effort": "M",
+      "status": "todo"
+    },
+    {
+      "id": "todo-009",
+      "priority": "P3",
+      "component": "collector",
+      "title": "Only the browser can report; nothing server-side or batch",
+      "file": "009-server-side-ingest.md",
+      "depends_on": [],
+      "src_files": ["collector/config.go", "collector/ingest/events.go"],
+      "exit_check": "A server key ingests without an Origin header; browser keys still origin-checked; sessionless events render sanely",
+      "effort": "M",
+      "blocked_on_decision": "Is server-side ingest in scope at all? Argue against CLAUDE.md \u00a71-2 first.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-010",
+      "priority": "P3",
+      "component": "collector",
+      "title": "Nothing tells you something broke; you have to go look",
+      "file": "010-alerting-on-errors-and-reports.md",
+      "depends_on": [],
+      "src_files": ["collector/notify/", "collector/config.go", "collector/airgap_test.go"],
+      "exit_check": "Unconfigured, no outbound call is possible and airgap_test passes unmodified; configured, one deduped message with a working incident link; a dead webhook never delays ingest",
+      "effort": "M",
+      "note": "First deliberate egress in the project. The air-gap guarantee is a promise \u2014 the README section must stay exact.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-011",
+      "priority": "P3",
+      "component": "sdk",
+      "title": "Installing the SDK is genuinely awkward, in three separate ways",
+      "file": "011-sdk-distribution.md",
+      "depends_on": [],
+      "src_files": ["sdk/package.json", "scripts/vendor.sh", "docs/sdk.mdx"],
+      "evidence": "npm link errors in pnpm projects; a cross-repo link: fails under Turbopack and widening the root took a compile from 1.5s to >2min; no require condition, so CJS resolve throws ERR_PACKAGE_PATH_NOT_EXPORTED",
+      "exit_check": "One documented, tested path from checkout to working install that the consumer does not have to script themselves",
+      "effort": "S-M",
+      "status": "todo"
+    },
+    {
+      "id": "todo-012",
+      "priority": "P3",
+      "component": "repo",
+      "title": "tasks/manifest.json says 17 shipped features are todo",
+      "file": "012-stale-task-manifest.md",
+      "depends_on": [],
+      "src_files": ["tasks/manifest.json", "tasks/README.md", "CLAUDE.md"],
+      "evidence": "17 rows marked todo; only 3 are genuinely outstanding, and 2 of those for reasons the manifest does not record",
+      "exit_check": "Every status reflects reality; tasks/ is marked historical and points at todo/; CLAUDE.md names todo/ as the live backlog",
+      "effort": "XS",
+      "status": "todo"
+    },
+    {
+      "id": "todo-013",
+      "priority": "P1",
+      "component": "dashboard",
+      "title": "rrweb is 81% of the dashboard payload and loads on every page",
+      "file": "013-lazy-load-the-replay-engine.md",
+      "depends_on": [],
+      "src_files": [
+        "collector/dashboard/ui/build.mjs",
+        "collector/dashboard/ui/src/views/replaySurface.ts",
+        "collector/dashboard/ui/src/views/ReplayPlayer.tsx"
+      ],
+      "evidence": "esbuild --analyze: rrweb 253.1kb = 80.9% of the bundle, statically imported. app.js 320136 raw / 100661 gz; same source with rrweb external: 60038 raw / 19312 gz",
+      "exit_check": "Initial app.js under 25KB gzipped; non-replay views never request the rrweb chunk; chunk serves correctly from the embedded binary; size gate in CI",
+      "effort": "S",
+      "note": "Best ratio in the backlog. build.mjs already has format:esm + outdir and index.html loads type=module, so splitting:true needs no loader change and no Go change.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-014",
+      "priority": "P2",
+      "component": "dashboard",
+      "title": "Network rows drown everything else in the live feed",
+      "file": "014-live-feed-signal-to-noise.md",
+      "depends_on": [],
+      "src_files": [
+        "collector/dashboard/ui/src/views/LiveFeed.tsx",
+        "collector/dashboard/ui/src/App.tsx"
+      ],
+      "evidence": "One real 25-minute session: 254 network rows of 286 events (89%); default limit is 100, so the first screen can be entirely noise",
+      "exit_check": "Default feed shows deliberate actions; network is one click away and obviously available; filter round-trips through the URL",
+      "effort": "S, M with row grouping",
+      "note": "Shares URL-hash state plumbing with todo-004 and todo-005 step 1.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-015",
+      "priority": "P2",
+      "component": "dashboard",
+      "title": "Thinly accessible; the replay player barely at all",
+      "file": "015-accessibility-pass.md",
+      "depends_on": [],
+      "src_files": [
+        "collector/dashboard/ui/src/views/replaySurface.ts",
+        "collector/dashboard/ui/src/index.html"
+      ],
+      "evidence": "Whole UI: 1 :focus-visible rule, 6 aria-* attributes, 4 role=, no sr-only utility. Play/pause button has no accessible name; scrub track is a div with no slider role or keyboard handling",
+      "exit_check": "Replay operable entirely from the keyboard; every control has a name and visible focus; tables announce headers; automated a11y audit green in CI",
+      "effort": "M",
+      "status": "todo"
+    },
+    {
+      "id": "todo-016",
+      "priority": "P3",
+      "component": "dashboard",
+      "title": "A fresh collector gives no clue what to do next",
+      "file": "016-first-run-empty-state.md",
+      "depends_on": ["todo-004"],
+      "src_files": ["collector/query/meta.go", "collector/dashboard/ui/src/views/Setup.tsx"],
+      "exit_check": "Zero-event collector shows a pre-filled snippet and the CSP line with its real origin; panel clears itself on first event; an empty time window never shows setup; no endpoint exposes an app key",
+      "effort": "S-M",
+      "note": "The most common first-run failure is a connect-src that blocks every POST with no console error \u2014 the dashboard is where someone will be looking when it happens.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-017",
+      "priority": "P1",
+      "component": "dashboard",
+      "title": "Organised by mechanism, and there is no home page",
+      "file": "017-information-architecture.md",
+      "depends_on": ["todo-004"],
+      "src_files": [
+        "collector/dashboard/ui/src/App.tsx",
+        "collector/dashboard/ui/src/views/Home.tsx",
+        "collector/dashboard/ui/src/views/Insights.tsx"
+      ],
+      "evidence": "Nav is 5 flat peers named after storage mechanism; 3 of them (live/timeline/errors) are one endpoint differently filtered. parseHash defaults to 'live', so the landing page is an unbounded event stream. Insights holds 6 unrelated analyses on one scrolling page.",
+      "exit_check": "Lands on Home, not an event stream; Home answers 'is anything wrong' without scrolling at 1280px; every Home number carries a period comparison; no capability removed; nav fits one line at 720px",
+      "effort": "L",
+      "group": "ux-restructure",
+      "note": "Regrouping adds no query capability. Home is the only new page and is a design problem before a coding one. Explicit non-goals: retention, cohorts, path diagrams, flags, experiments.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-018",
+      "priority": "P1",
+      "component": "dashboard",
+      "title": "Every number is a dead end",
+      "file": "018-drill-down-paths.md",
+      "depends_on": ["todo-004"],
+      "src_files": [
+        "collector/dashboard/ui/src/App.tsx",
+        "collector/dashboard/ui/src/views/Flows.tsx",
+        "collector/dashboard/ui/src/views/Incident.tsx",
+        "collector/store/flows.go"
+      ],
+      "evidence": "onOpenIncident is the only cross-view link in the product. Insights.tsx has 2 onClicks (Refresh, Run funnel); Flows.tsx has 1 (Refresh). Every DAU bar, top-page row, funnel step and flow cell is inert.",
+      "exit_check": "At most three clicks from any aggregate to a replay of a session behind it; drill-downs carry filter context and are shareable; back returns with filters intact; clickable rows are real keyboard-reachable controls",
+      "effort": "M",
+      "group": "ux-restructure",
+      "note": "The rule: every aggregate leads to its rows, every row leads to a session, every session leads to a replay. This is the differentiator \u2014 spyglass records every session, so unlike a sampling tool every number has a watchable session behind it.",
+      "status": "todo"
+    },
+    {
+      "id": "todo-019",
+      "priority": "P2",
+      "component": "dashboard",
+      "title": "The nouns \u2014 user, flow, screen \u2014 are not destinations",
+      "file": "019-entity-pages.md",
+      "depends_on": ["todo-018"],
+      "src_files": [
+        "collector/dashboard/ui/src/views/FlowPage.tsx",
+        "collector/dashboard/ui/src/views/UserPage.tsx",
+        "collector/dashboard/ui/src/views/ScreenPage.tsx"
+      ],
+      "evidence": "Of four nouns (user, session, flow, screen) only session has a page. A user id or flow name rendered anywhere else is inert text.",
+      "exit_check": "A user id or flow name anywhere links to its page; each page answers its obvious follow-ups without leaving it; each reaches a replay in one click; each is a pasteable URL",
+      "effort": "L for all three, M for the flow page alone",
+      "group": "ux-restructure",
+      "note": "Start with the flow page; it may be enough for a while. No generic entity abstraction \u2014 three hand-written pages.",
+      "status": "todo"
+    }
+  ]
+}
