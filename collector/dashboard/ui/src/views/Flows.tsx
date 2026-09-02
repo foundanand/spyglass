@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 import { Icon } from "../components/Icon.js";
 import { SkeletonRows } from "../components/Skeleton.js";
 import { FlowLink, UserLink } from "../components/EntityLink.js";
+import { SaveView } from "../components/SaveView.js";
 import { applyRange, type TimeRange } from "../range.js";
 
 // Flow durations — the "how long does this take" panel.
@@ -105,6 +106,18 @@ export function Flows({ range }: { range: TimeRange }) {
     void load();
   }, [name, group, propKey, range.key]);
 
+  /** The panel's own parameters, without the window — a board supplies that. */
+  function savedParams(): Record<string, string> {
+    const p: Record<string, string> = {};
+    if (name) p.name = name;
+    if (group === "prop" || group === TRAIT_GROUP) {
+      if (propKey) p.group = `${group}:${propKey}`;
+    } else if (group) {
+      p.group = group;
+    }
+    return p;
+  }
+
   const flows = data?.flows ?? [];
   const names = data?.names ?? [];
   const grouped = group !== "";
@@ -155,6 +168,11 @@ export function Flows({ range }: { range: TimeRange }) {
         <button onClick={load}>
           <Icon name="refresh" size={14} /> Refresh
         </button>
+        <SaveView
+          kind="flows"
+          params={savedParams()}
+          suggestedName={name ? `${name}${group ? ` by ${group}` : ""}` : "All flows"}
+        />
         {loading && <span class="ts">Loading…</span>}
       </div>
 

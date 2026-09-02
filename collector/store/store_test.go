@@ -696,3 +696,57 @@ func TestQueryEventsByScreen(t *testing.T) {
 		}
 	}
 }
+
+// The migration runner had exactly one file until saved views added a second.
+// This is its first real exercise: ordering, partial application, and rerunning
+// against a database that already has some of them.
+func TestMigrationsApplyInOrderAndAreIdempotent(t *testing.T) {
+	dir := t.TempDir()
+
+	// First open applies everything.
+	st, err := store.Open(dir)
+	if err != nil {
+		t.Fatalf("first open: %v", err)
+	}
+	// Both migrations' tables exist and work.
+	if err := st.InsertEvents([]store.Event{
+		{Ts: 1, App: "demo", UserID: "u", SessionID: "s", Type: "event", Name: "x"},
+	}); err != nil {
+		t.Fatalf("001 table unusable: %v", err)
+	}
+	v, err := st.CreateView("v", "flows", nil)
+	if err != nil {
+		t.Fatalf("002 table unusable: %v", err)
+	}
+	st.Close()
+
+	// Reopening must not re-apply, and must not lose data.
+	st2, err := store.Open(dir)
+	if err != nil {
+		t.Fatalf("second open: %v", err)
+	}
+	defer st2.Close()
+
+	views, err := st2.ListViews()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(views) != 1 || views[0].ID != v.ID {
+		t.Errorf("data did not survive reopen: %+v", views)
+	}
+	events, err := st2.QueryEvents(store.EventQuery{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 {
+		t.Errorf("events did not survive reopen: %d", len(events))
+	}
+
+	// A third open, for good measure — a migration that is not idempotent
+	// usually fails on the second or third run, not the first.
+	st3, err := store.Open(dir)
+	if err != nil {
+		t.Fatalf("third open: %v", err)
+	}
+	st3.Close()
+}

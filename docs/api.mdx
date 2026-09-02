@@ -307,6 +307,53 @@ Days are `YYYY-MM-DD` in UTC.
 
 ---
 
+## Saved views and boards
+
+The only write path outside ingest, and behind the dashboard password like every
+other non-ingest route. **Not reachable with an app key** — that key ships to
+browsers and is scoped to ingest; letting it write here would widen it into a
+general read-write credential.
+
+There is no new query capability. A view is a **name attached to a parameter
+set** the existing endpoints already accept.
+
+| Route                   | Purpose                                      |
+| ----------------------- | -------------------------------------------- |
+| `GET /v1/views`         | Every saved view.                            |
+| `POST /v1/views`        | Create one: `{ name, kind, params }`.        |
+| `GET /v1/views/:id`     | One view.                                    |
+| `PUT /v1/views/:id`     | Replace its name, kind and params.           |
+| `DELETE /v1/views/:id`  | Delete it. Boards drop the panel; see below. |
+| `GET /v1/boards`        | Every board, with its views hydrated.        |
+| `POST /v1/boards`       | Create one: `{ name, views: [id, …] }`.      |
+| `GET /v1/boards/:id`    | One board.                                   |
+| `PUT /v1/boards/:id`    | Replace its panels and their order.          |
+| `DELETE /v1/boards/:id` | Delete the board. Its views survive.         |
+
+`kind` is one of `flows`, `funnel`, `aggregates`, `events` — a closed set, on
+purpose. Anything else is a `400`.
+
+```bash
+curl -X POST http://localhost:7474/v1/views \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Task creation by role","kind":"flows",
+       "params":{"name":"task.file","group":"trait:role"}}'
+```
+
+<Callout type="info">
+  **Views are global.** The collector has one shared password and no user model, which is right for
+  a 20–200 person tool — adding a user model so somebody could keep a private favourite would be the
+  tail wagging the dog.
+</Callout>
+
+**Deleting a view does not break a board that uses it.** The join rows cascade,
+so the board loses that panel and keeps working. Deleting a _board_ leaves its
+views alone; they are independent objects that may appear on other boards.
+
+**A board does not store a time range.** It inherits the dashboard's window, so
+every panel on it is comparable — a saved view that pinned its own dates would
+quietly answer a different question from the one beside it.
+
 ## Replay
 
 ### `GET /v1/sessions/:id/replay`

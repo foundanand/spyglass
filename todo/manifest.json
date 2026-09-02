@@ -1,28 +1,11 @@
 {
   "schema": "spyglass-todo/v1",
-  "note": "The live backlog. tasks/ records the original build and has drifted (see todo-012); this folder is what is actually outstanding. Items are deleted as they ship \u2014 the changelog/ entry is the record.",
+  "note": "The live backlog, currently empty \u2014 every item found in the first sweep has shipped; changelog/006 through changelog/017 are the record. New items go here, one file per item, with evidence, an approach and acceptance criteria. tasks/ is the historical build breakdown, not a work queue.",
   "priorities": {
     "P0": "The data is wrong, lost, or the config lies. Fix before building on it.",
     "P1": "The tool cannot answer a question people immediately ask of it.",
     "P2": "Real depth, but the tool is useful without it.",
     "P3": "Reach and ops. Worth doing, not worth blocking on."
   },
-  "todos": [
-    {
-      "id": "todo-005",
-      "priority": "P1",
-      "component": "collector+dashboard",
-      "title": "No way to save a question, so every session starts from scratch",
-      "file": "005-saved-views-and-custom-dashboards.md",
-      "depends_on": [],
-      "src_files": [
-        "collector/store/migrations/002_views.sql",
-        "collector/dashboard/ui/src/views/Board.tsx"
-      ],
-      "exit_check": "A configured panel is a shareable URL; a named view survives a restart; a board renders several",
-      "effort": "S (step 1) / M (steps 2-3)",
-      "note": "The stated product direction. Depends on todo-003 or it ships a builder over three dimensions.",
-      "status": "todo"
-    }
-  ]
+  "todos": []
 }

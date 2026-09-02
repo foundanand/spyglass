@@ -63,6 +63,15 @@ func run(cfg *Config, st *store.Store) error {
 	mux.Handle("GET /v1/query/counts", gate(query.NewCountsHandler(st)))
 	mux.Handle("GET /v1/query/flow-detail", gate(query.NewFlowDetailHandler(st)))
 	mux.Handle("GET /v1/query/meta", gate(query.NewMetaHandler(st, version, appSlugs)))
+
+	// Saved views and boards — the only write path outside ingest, and behind
+	// the dashboard password like every other non-ingest route. The app key is
+	// scoped to ingest and must not reach here: it ships to browsers.
+	viewsHandler := query.NewViewsHandler(st)
+	mux.Handle("/v1/views", gate(viewsHandler))
+	mux.Handle("/v1/views/", gate(viewsHandler))
+	mux.Handle("/v1/boards", gate(viewsHandler))
+	mux.Handle("/v1/boards/", gate(viewsHandler))
 	mux.Handle("GET /v1/sessions/", gate(replayHandler))
 	mux.Handle("GET /v1/incidents/", gate(incidentHandler))
 	mux.Handle("/", gate(dashboard.Handler()))

@@ -10,6 +10,7 @@ import { FlowPage } from "./views/FlowPage.js";
 import { UserPage } from "./views/UserPage.js";
 import { ScreenPage } from "./views/ScreenPage.js";
 import { Setup } from "./views/Setup.js";
+import { Boards } from "./views/Boards.js";
 import { Icon } from "./components/Icon.js";
 import { DEFAULT_RANGE, isRangeKey, RANGES, resolveRange, type RangeKey } from "./range.js";
 
@@ -28,6 +29,7 @@ type View =
   | "sessions"
   | "issues"
   | "explore"
+  | "boards"
   | "replay"
   | "incident"
   | "flow"
@@ -51,6 +53,7 @@ const TITLES: Record<View, string> = {
   sessions: "sessions",
   issues: "issues",
   explore: "explore",
+  boards: "boards",
   replay: "replay",
   incident: "incident",
   flow: "flow",
@@ -84,6 +87,8 @@ function parseHash(): Route {
       return { view: "issues", ...base };
     case "explore":
       return { view: "explore", ...base };
+    case "boards":
+      return { view: "boards", param, ...base };
     case "replay":
       return { view: "replay", param, ...base };
     case "incident":
@@ -116,6 +121,7 @@ const NAV: { view: View; label: string; icon: Parameters<typeof Icon>[0]["name"]
     { view: "behaviour", label: "Behaviour", icon: "network", hint: "What are people doing?" },
     { view: "sessions", label: "Sessions", icon: "user", hint: "Who did it?" },
     { view: "issues", label: "Issues", icon: "error", hint: "What broke?" },
+    { view: "boards", label: "Boards", icon: "network", hint: "Saved views you check regularly" },
     { view: "explore", label: "Explore", icon: "clock", hint: "The raw event stream" },
   ];
 
@@ -242,6 +248,7 @@ export function App() {
             {view === "behaviour" && <Behaviour range={range} />}
             {view === "sessions" && <UserTimeline range={range} />}
             {view === "issues" && <Errors onOpenIncident={openIncident} range={range} />}
+            {view === "boards" && <Boards range={range} boardId={param} />}
             {view === "explore" && (
               <LiveFeed
                 onOpenIncident={openIncident}

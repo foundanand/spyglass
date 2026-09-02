@@ -14,13 +14,14 @@ once.
 Five sections, named after the question each answers rather than after how the
 data is stored:
 
-| Section       | Answers                |
-| ------------- | ---------------------- |
-| **Home**      | Is everything OK?      |
-| **Behaviour** | What are people doing? |
-| **Sessions**  | Who did it?            |
-| **Issues**    | What broke?            |
-| **Explore**   | The raw event stream   |
+| Section       | Answers                         |
+| ------------- | ------------------------------- |
+| **Home**      | Is everything OK?               |
+| **Behaviour** | What are people doing?          |
+| **Sessions**  | Who did it?                     |
+| **Issues**    | What broke?                     |
+| **Boards**    | The numbers you check regularly |
+| **Explore**   | The raw event stream            |
 
 A **time range picker** sits in the nav and applies to every view — 24h, 7d, 30d,
 90d, All, defaulting to **30 days**. It lives in the URL (`#/behaviour?range=7d`),
@@ -110,6 +111,29 @@ should not be used to write one.
 Errors and bug reports, filterable by type and user, newest first. Every row
 opens the incident view. Pages backwards through history, and exports to CSV
 with the filters you are looking at.
+
+---
+
+## Boards
+
+Every question you asked spyglass used to be thrown away when the tab closed.
+The flow table and funnel builder both take real input, and neither could be
+named, saved, or put beside another one — so the tool answered questions but
+never accumulated.
+
+Configure the flow table or funnel on **Behaviour** and press **save this
+view**. A board is a named, ordered set of saved views on one page: "the four
+numbers we check every Monday", and something you can hand a colleague rather
+than instructions for recreating it.
+
+This is persistence and layout, not a query language — a saved view stores the
+parameters a panel is already using, so a board can never ask something the
+dashboard could not.
+
+A board inherits the dashboard's time range rather than pinning its own, so its
+panels stay comparable. Views are global: the collector has one shared password
+and no user model. Deleting a view removes that panel from any board using it;
+the board keeps working.
 
 ---
 

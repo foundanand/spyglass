@@ -162,6 +162,8 @@ spyglass.report("it broke");     // programmatic bug report
 | `GET /v1/query/funnel?steps=a,b,c`           | Simple step funnel (SQL, good enough)                                                   |
 | `GET /v1/query/flows`                        | Flow durations: p50/p90/p95, abandon rate, `group=user\|day\|prop:<key>\|session:<key>` |
 | `GET /v1/query/counts`                       | Event counts by type in a window (feed chips)                                           |
+| `GET /v1/query/meta`                         | Version, app slugs, whether anything has ever arrived (first-run panel)                 |
+| `/v1/views`, `/v1/boards`                    | Saved views and boards — CRUD, dashboard-password gated                                 |
 | `GET /v1/sessions/:id/replay`                | Chunk manifest + streaming chunk fetch                                                  |
 | `GET /v1/incidents/:event_id`                | **Incident slice**(see §7)                                                              |
 | `GET /`                                      | Embedded dashboard                                                                      |

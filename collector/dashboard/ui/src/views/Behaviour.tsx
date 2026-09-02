@@ -3,6 +3,7 @@ import { Icon } from "../components/Icon.js";
 import { Sparkline } from "../components/Sparkline.js";
 import { SkeletonRows } from "../components/Skeleton.js";
 import { Flows, fmtDuration } from "./Flows.js";
+import { SaveView } from "../components/SaveView.js";
 import { applyRange, tzOffsetMinutes, type TimeRange } from "../range.js";
 
 interface DayCount {
@@ -137,6 +138,19 @@ function FunnelBuilder() {
         <button onClick={run}>
           <Icon name="chevron-right" size={14} /> Run funnel
         </button>
+        {steps.length > 0 && (
+          <SaveView
+            kind="funnel"
+            params={{
+              steps: input
+                .split(",")
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .join(","),
+            }}
+            suggestedName={`Funnel: ${input.slice(0, 40)}`}
+          />
+        )}
         {loading && <span class="ts">Loading…</span>}
       </div>
       {err && <div style="color:var(--red);margin-bottom:0.5rem">{err}</div>}

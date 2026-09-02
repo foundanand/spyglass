@@ -28,14 +28,13 @@ Check it before assuming it is still true.
 
 ## Index
 
-| #                                                 | Priority | Item                                                            | Component             |
-| ------------------------------------------------- | -------- | --------------------------------------------------------------- | --------------------- |
-| [005](./005-saved-views-and-custom-dashboards.md) | **P1**   | No way to save a question, so every session starts from scratch | collector + dashboard |
+**Empty.** Every item from the first sweep has shipped. New work goes here — one
+file per item, following the shape described below.
 
 ## What shipped
 
-Eighteen items have been delivered and their files deleted; `changelog/006`
-through `changelog/016` are the record. Briefly:
+All nineteen items have been delivered and their files deleted; `changelog/006`
+through `changelog/017` are the record. Briefly:
 
 - **The two P0s** — replay chunks were overwriting each other across page loads
   (32 of 50 chunks destroyed in a measured session), and `autocapture` was a
@@ -59,6 +58,8 @@ through `changelog/016` are the record. Briefly:
   install, plus the SDK's 5KB budget finally enforced.
 - **`tasks/` statuses corrected** — seventeen rows claimed `todo` for shipped
   features.
+- **Saved views and boards**, so a configured panel survives the tab closing and
+  can be handed to a colleague.
 
 Two bugs were found while building, neither of them on the list: the SDK's
 `flush()` silently dropped events when one was already in flight, and the
