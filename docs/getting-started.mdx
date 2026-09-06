@@ -4,7 +4,7 @@ description: Run the collector, point the SDK at it, and watch events, replays, 
 ---
 
 Two moving parts: the **collector** (`spyglassd`, one Go binary) and the **SDK**
-(`@spyglass/sdk`, dropped into your web app). The collector stores everything and
+(`@foundanand/spyglass-sdk`, dropped into your web app). The collector stores everything and
 serves the dashboard; the SDK ships telemetry to it. Stand up the collector
 first, then wire the SDK.
 
@@ -65,11 +65,14 @@ the full reference.
 
 ## 2. Add the SDK to your app
 
-Install `@spyglass/sdk` from your workspace or private registry (it is **not**
-published to public npm), then initialize it once, as early as possible:
+Install it, then initialize once, as early as possible:
+
+```bash
+npm i @foundanand/spyglass-sdk
+```
 
 ```ts title="app entry (e.g. layout or _app)"
-import { spyglass } from "@spyglass/sdk";
+import { spyglass } from "@foundanand/spyglass-sdk";
 
 spyglass.init({
   endpoint: "http://localhost:7474", // your collector URL
@@ -103,7 +106,7 @@ spyglass.capture("invoice_created", { amount: 1200, currency: "USD" });
 Wrap your tree once and app-router pageviews wire up automatically:
 
 ```tsx title="app/layout.tsx"
-import { SpyglassProvider } from "@spyglass/sdk/next";
+import { SpyglassProvider } from "@foundanand/spyglass-sdk/next";
 
 export default function RootLayout({ children }) {
   return (

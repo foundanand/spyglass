@@ -401,8 +401,8 @@
         "p4-sdk-report-widget"
       ],
       "exit_check": "Core \u22645KB gz (rrweb lazy); package publishes to npm",
-      "status": "wontfix",
-      "resolution": "Reversed. The SDK is deliberately not on npm (GPL, self-hosted, air-gap); distribution is scripts/vendor.sh \u2014 see changelog/016."
+      "status": "done",
+      "resolution": "Reversed again: the SDK is published as @foundanand/spyglass-sdk, released from master by CI when the version changes. scripts/vendor.sh remains the air-gapped path. See changelog/019."
     },
     {
       "id": "p5-slack-webhook",

@@ -73,7 +73,7 @@ export function Setup({ meta, onArrived }: { meta: Meta; onArrived: () => void }
   const origin = window.location.origin;
   const app = meta.apps[0] ?? "your-app";
 
-  const snippet = `import { spyglass } from "@spyglass/sdk";
+  const snippet = `import { spyglass } from "@foundanand/spyglass-sdk";
 
 spyglass.init({
   endpoint: "${origin}",

@@ -1,10 +1,32 @@
 {
-  "name": "@spyglass/sdk",
-  "version": "0.0.0",
-  "description": "Tiny telemetry SDK for spyglass: events, replay, errors, and bug reports.",
+  "name": "@foundanand/spyglass-sdk",
+  "version": "0.0.1",
+  "description": "Tiny telemetry SDK for spyglass: events, session replay, flow timing, errors, and bug reports. ~4KB gzipped core; rrweb loads lazily.",
+  "keywords": [
+    "analytics",
+    "telemetry",
+    "session-replay",
+    "rrweb",
+    "error-tracking",
+    "product-analytics",
+    "self-hosted",
+    "spyglass"
+  ],
   "license": "GPL-3.0-or-later",
+  "homepage": "https://github.com/foundanand/spyglass#readme",
+  "bugs": {
+    "url": "https://github.com/foundanand/spyglass/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/foundanand/spyglass.git",
+    "directory": "sdk"
+  },
   "type": "module",
   "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -22,11 +44,15 @@
   "files": [
     "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "node build.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "size-check": "node size-check.mjs"
+    "size-check": "node size-check.mjs",
+    "prepublishOnly": "node build.ts && node size-check.mjs"
   },
   "dependencies": {
     "@rrweb/rrweb-plugin-console-record": "^2.0.1",

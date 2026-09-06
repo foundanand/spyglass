@@ -14,7 +14,7 @@ importers:
 
   examples/nextjs-demo:
     dependencies:
-      '@spyglass/sdk':
+      '@foundanand/spyglass-sdk':
         specifier: workspace:*
         version: link:../../sdk
       next:

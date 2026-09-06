@@ -20,7 +20,7 @@ export interface SpyglassProviderProps {
  *
  * @example
  * // app/layout.tsx
- * import { SpyglassProvider } from "@spyglass/sdk/next";
+ * import { SpyglassProvider } from "@foundanand/spyglass-sdk/next";
  * export default function RootLayout({ children }) {
  *   return <SpyglassProvider config={sdkConfig}>{children}</SpyglassProvider>;
  * }

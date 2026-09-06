@@ -34,7 +34,7 @@ PostHog / Highlight / OpenReplay assume billion-event scale: ClickHouse, Kafka, 
 ```
 ┌─────────────────────────────┐
 │  Next.js app (or any web)   │
-│  @spyglass/sdk (~5KB gz)    │
+│  @foundanand/spyglass-sdk (~5KB gz)    │
 │  ├─ events (capture, pages) │
 │  ├─ rrweb recorder + console│
 │  ├─ fetch/XHR interceptor   │
@@ -114,12 +114,12 @@ data/
 
 Chunk = ~10s of rrweb events. Console logs travel inside the rrweb stream via the official console-record plugin (no separate pipeline).
 
-## 5. SDK (`@spyglass/sdk`)
+## 5. SDK (`@foundanand/spyglass-sdk`)
 
 ### API surface (keep it this small)
 
 ```ts
-import { spyglass } from "@spyglass/sdk";
+import { spyglass } from "@foundanand/spyglass-sdk";
 
 spyglass.init({
   endpoint: "https://telemetry.internal.acme.dev",   // dynamoip pairs nicely here
@@ -229,7 +229,7 @@ SDK: error handlers, fetch/XHR patch, dedup. Dashboard: error list, network rows
 SDK: widget, `report()`. Go: `/v1/incidents/:id` slice assembly. Dashboard: the incident page. _Exit: click report → open incident → replay cued to that exact moment._
 
 **Phase 5 — Polish & release.**
-Funnel/aggregate queries, dashboard auth, `npx spyglassd` wrapper or install script, README in dynamoip's voice, Docker example, GPL-3.0 license, publish `@spyglass/sdk`.
+Funnel/aggregate queries, dashboard auth, `npx spyglassd` wrapper or install script, README in dynamoip's voice, Docker example, GPL-3.0 license, publish `@foundanand/spyglass-sdk`. _(Done: published to npm, released from `master` by CI when the version changes; `scripts/vendor.sh` remains the air-gapped path.)_
 
 Each phase ships working software. Do not start phase N+1 with phase N broken.
 
@@ -240,7 +240,7 @@ spyglass/
   collector/         # Go module: spyglassd
     main.go
     ingest/  store/  query/  dashboard/ (embedded static)
-  sdk/               # npm: @spyglass/sdk (TypeScript, esbuild)
+  sdk/               # npm: @foundanand/spyglass-sdk (TypeScript, esbuild)
     src/{core,replay,network,errors,widget,next}.ts
   examples/
     nextjs-demo/     # throwaway app that exercises everything

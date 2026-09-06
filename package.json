@@ -10,8 +10,8 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "pnpm --filter @spyglass/sdk build",
-    "test": "pnpm --filter @spyglass/sdk test",
+    "build": "pnpm --filter @foundanand/spyglass-sdk build",
+    "test": "pnpm --filter @foundanand/spyglass-sdk test",
     "format": "prettier --write \"**/*.{ts,tsx,mjs,json,md,mdx}\" --cache",
     "format:check": "prettier --check \"**/*.{ts,tsx,mjs,json,md,mdx}\" --cache"
   },

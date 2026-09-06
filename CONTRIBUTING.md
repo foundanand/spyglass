@@ -39,7 +39,7 @@ This is a monorepo with three deployable pieces:
 collector/            Go module — the spyglassd binary (github.com/foundanand/spyglass/collector)
   ingest/  store/  query/       endpoints, SQLite access, read queries
   dashboard/ui/                 embedded dashboard SPA (Preact, esbuild) — npm-managed
-sdk/                  npm package — @spyglass/sdk (TypeScript, esbuild, vitest)
+sdk/                  npm package — @foundanand/spyglass-sdk (TypeScript, esbuild, vitest)
 examples/nextjs-demo/ throwaway app that exercises the SDK end-to-end
 docs/                 user-facing documentation
 changelog/            one file per change-set (see "Changelog", below)
@@ -81,9 +81,9 @@ For SDK work, pnpm from the root:
 
 ```bash
 pnpm install                       # install workspace deps
-pnpm --filter @spyglass/sdk build  # build the SDK
-pnpm --filter @spyglass/sdk test   # vitest
-pnpm --filter @spyglass/sdk typecheck
+pnpm --filter @foundanand/spyglass-sdk build  # build the SDK
+pnpm --filter @foundanand/spyglass-sdk test   # vitest
+pnpm --filter @foundanand/spyglass-sdk typecheck
 ```
 
 To exercise replay/events by hand, run the collector and point the demo app at
@@ -115,8 +115,8 @@ CGO_ENABLED=0 go build -o /dev/null .
 
 ```bash
 pnpm install
-pnpm --filter @spyglass/sdk typecheck
-pnpm --filter @spyglass/sdk test
+pnpm --filter @foundanand/spyglass-sdk typecheck
+pnpm --filter @foundanand/spyglass-sdk test
 ```
 
 **Formatting** — Prettier covers TS/TSX/MJS/JSON/MD:

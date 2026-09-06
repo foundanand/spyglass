@@ -12,5 +12,5 @@
   "src_files": ["sdk/package.json", "sdk/.github/", "sdk/size-check.mjs"],
   "exit_check": "Core \u22645KB gz (rrweb lazy); package publishes to npm",
   "refs": "\u00a75, \u00a712",
-  "status": "wontfix"
+  "status": "done"
 }

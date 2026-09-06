@@ -1,4 +1,4 @@
-// Bundles @spyglass/sdk with esbuild (ESM, code-split so rrweb can be a lazy
+// Bundles @foundanand/spyglass-sdk with esbuild (ESM, code-split so rrweb can be a lazy
 // chunk loaded only when replay is enabled) and emits type declarations via tsc.
 // Run with `node build.ts` (Node strips the types).
 import { build } from "esbuild";

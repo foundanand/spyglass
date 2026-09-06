@@ -14,13 +14,16 @@ field at all — anyone reading it to decide what to work on would have conclude
 that error tracking and the incident view needed building, and started
 rebuilding them.
 
-They now reflect reality. Every task is `done` except two, which are `wontfix`
-and say why in a `resolution` field:
+They now reflect reality. Every task is `done` except one, which is `wontfix`
+and says why in a `resolution` field:
 
-| Task                 | Resolution                                                             |
-| -------------------- | ---------------------------------------------------------------------- |
-| `p4-sdk-autocapture` | Cut, not deferred — replay already captures interactions visually.     |
-| `p5-sdk-publish`     | Reversed — the SDK is not on npm; distribution is `scripts/vendor.sh`. |
+| Task                 | Resolution                                                         |
+| -------------------- | ------------------------------------------------------------------ |
+| `p4-sdk-autocapture` | Cut, not deferred — replay already captures interactions visually. |
+
+`p5-sdk-publish` was `wontfix` for a while — the SDK was deliberately off npm —
+and is now `done`: it publishes as `@foundanand/spyglass-sdk`, released from
+`master` by CI. `scripts/vendor.sh` remains the air-gapped path.
 
 Nothing reads `manifest.json` programmatically; it is documentation.
 

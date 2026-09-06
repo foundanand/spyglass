@@ -71,11 +71,91 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: typecheck
-        run: pnpm --filter @spyglass/sdk typecheck
+        run: pnpm --filter @foundanand/spyglass-sdk typecheck
       - name: unit tests
-        run: pnpm --filter @spyglass/sdk test
+        run: pnpm --filter @foundanand/spyglass-sdk test
       # The core has a 5KB gzipped budget, and its entry must import nothing
       # external — a linked SDK whose entry pulls in react loads a second copy
       # of it, and the resulting hook errors point nowhere near the cause.
       - name: sdk size budget and link safety
-        run: pnpm --filter @spyglass/sdk build && pnpm --filter @spyglass/sdk size-check
+        run: pnpm --filter @foundanand/spyglass-sdk build && pnpm --filter @foundanand/spyglass-sdk size-check
+
+  # Publish the SDK to npm when a merge lands on master and everything above is
+  # green. `needs` is what enforces "passes everything" — this job cannot start
+  # until both the collector job (including the air-gap guard) and the sdk job
+  # have succeeded.
+  publish:
+    name: publish sdk to npm
+    needs: [collector, sdk]
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      # write, because the last step pushes a release tag.
+      contents: write
+      # Lets npm attach a provenance attestation, so anyone installing the
+      # package can verify which commit and workflow built it.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+
+      # Two reasons to skip, neither of which is a failure:
+      #
+      #   1. The version is already on npm. A merge that does not bump the
+      #      version is the normal case, and npm refuses to republish — without
+      #      this, every collector-only merge would fail an otherwise green build.
+      #   2. No NPM_TOKEN is configured. A fork, or this repo before the secret
+      #      is added, should not have a red build over a release it was never
+      #      going to make.
+      - name: should we publish?
+        id: check
+        working-directory: sdk
+        env:
+          HAS_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VERSION=$(node -p "require('./package.json').version")
+          echo "name=$NAME"       >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::NPM_TOKEN is not configured — skipping publish of $NAME@$VERSION."
+            exit 0
+          fi
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is already on npm — nothing to publish."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$NAME@$VERSION is new — publishing."
+          fi
+
+      - name: build
+        if: steps.check.outputs.publish == 'true'
+        run: pnpm --filter @foundanand/spyglass-sdk build
+
+      # Re-checked here rather than trusting the sdk job: this is the artifact
+      # that reaches consumers, and it is built again in this job.
+      - name: size budget and link safety
+        if: steps.check.outputs.publish == 'true'
+        run: pnpm --filter @foundanand/spyglass-sdk size-check
+
+      - name: publish
+        if: steps.check.outputs.publish == 'true'
+        working-directory: sdk
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: tag the release
+        if: steps.check.outputs.publish == 'true'
+        run: |
+          git tag "sdk-v${{ steps.check.outputs.version }}"
+          git push origin "sdk-v${{ steps.check.outputs.version }}"

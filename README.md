@@ -60,29 +60,27 @@ roughly 0.5–2 MB per user-hour of active use, capped by `replays_days`.
 
 ### 2. Add the SDK to your app
 
-The SDK lives in `sdk/` (`@spyglass/sdk`). It is **not** published to npm — GPL,
-self-hosted, air-gap. One command vendors it into your app:
+The SDK lives in `sdk/` and is published as
+[`@foundanand/spyglass-sdk`](https://www.npmjs.com/package/@foundanand/spyglass-sdk):
 
 ```bash
-# in this repo
-scripts/vendor.sh /path/to/your-app
-
-# in your app
-pnpm add file:./vendor/spyglass-sdk
+npm i @foundanand/spyglass-sdk
 ```
 
-That builds, size-checks and packs the SDK, copies it in, and writes a
-`VENDORED.json` recording the source commit — so "which build is this running"
-stays answerable. If you can run a private registry (Verdaccio) or install from
-a git URL, prefer that.
+Published from `master` by CI with npm provenance, so you can verify which
+commit built any version.
 
+**Air-gapped?** npm is a convenience, not a dependency. Run
+`scripts/vendor.sh /path/to/your-app` from a checkout instead — it builds,
+size-checks and packs the SDK, copies it in, and writes a `VENDORED.json`
+recording the source commit, so "which build is this running" stays answerable.
+
+> Developing the SDK against a real app is the awkward case, not installing it:
 > `npm link` does not work in pnpm projects, and a cross-repo `link:` breaks
-> under Turbopack. Both fail silently or misleadingly — see
-> [Installing](docs/sdk.mdx) for what goes wrong and why the script copies
-> rather than symlinks.
+> under Turbopack. See [Installing](docs/sdk.mdx) for what goes wrong.
 
 ```ts
-import { spyglass } from "@spyglass/sdk";
+import { spyglass } from "@foundanand/spyglass-sdk";
 
 spyglass.init({
   endpoint: "https://telemetry.internal.acme.dev",
@@ -106,7 +104,7 @@ spyglass.endFlow("invoice.create", { items: 3 }); // it saved
 Next.js app-router pageviews wire up automatically:
 
 ```tsx
-import { SpyglassProvider } from "@spyglass/sdk/next";
+import { SpyglassProvider } from "@foundanand/spyglass-sdk/next";
 
 <SpyglassProvider config={{ endpoint, app: "inventory", key, user }}>{children}</SpyglassProvider>;
 ```
@@ -285,11 +283,12 @@ which fails the build (and CI) if an outbound call or external asset slips in.
 amd64/arm64`) or the ~21MB Docker image. Copy it in on approved media; there
   is nothing to install and no runtime dependency to resolve. The database is a
   single SQLite file, so backup and restore are `cp`.
-- **SDK:** not on npm — run `scripts/vendor.sh /path/to/your-app` outside the
-  enclave and carry the resulting `vendor/spyglass-sdk` directory in with the
-  rest of the app, or build your app where the checkout is reachable. Its only
-  runtime dep, rrweb, is bundled, and `VENDORED.json` records which commit the
-  copy came from.
+- **SDK:** on npm, but you do not need it. Run
+  `scripts/vendor.sh /path/to/your-app` outside the enclave and carry the
+  resulting `vendor/spyglass-sdk` directory in with the rest of the app, or
+  build your app where the checkout is reachable. Its only runtime dep, rrweb,
+  is bundled, and `VENDORED.json` records which commit the copy came from.
+  Nothing at runtime ever contacts the registry.
 - **Upgrades are staggered-safe.** The wire format is versioned (`/v1/`), so the
   SDK and collector can be updated independently — no lockstep redeploy across
   the boundary.
@@ -349,7 +348,7 @@ staying fully self-contained.
 ```
 spyglass/
   collector/        Go module: spyglassd (ingest, store, query, embedded dashboard)
-  sdk/              @spyglass/sdk (TypeScript, esbuild)
+  sdk/              @foundanand/spyglass-sdk (TypeScript, esbuild)
   examples/
     nextjs-demo/    throwaway app that exercises everything
 ```

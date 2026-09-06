@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Build, pack and vendor @spyglass/sdk into a consuming repo.
+# Build, pack and vendor @foundanand/spyglass-sdk into a consuming repo.
 #
 # The SDK is deliberately not on npm — GPL, self-hosted, air-gap — and the
 # obvious local workflows all fail in ways that are silent or misleading:
 #
-#   npm link @spyglass/sdk
+#   npm link @foundanand/spyglass-sdk
 #     "Cannot read properties of null (reading 'matches')" — npm cannot parse
 #     pnpm's node_modules layout. Unsupported in a pnpm project, full stop.
 #
@@ -90,7 +90,7 @@ VERSION="$(node -p "require('$SDK_DIR/package.json').version" 2>/dev/null || ech
 
 cat > "$DEST/VENDORED.json" <<EOF
 {
-  "package": "@spyglass/sdk",
+  "package": "@foundanand/spyglass-sdk",
   "version": "$VERSION",
   "source_commit": "$COMMIT",
   "working_tree": "$DIRTY",

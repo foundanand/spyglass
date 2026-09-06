@@ -1,6 +1,6 @@
 "use client";
 
-import { VERSION } from "@spyglass/sdk";
+import { VERSION } from "@foundanand/spyglass-sdk";
 
 // Phase 0: this only proves the workspace SDK import resolves. The buttons get
 // wired to spyglass.capture() in Phase 1 (p1-sdk-capture / p1-sdk-next-provider).
