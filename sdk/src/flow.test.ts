@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _reset, init } from "./core.js";
 import { _resetQueue, _queueLength, flush } from "./queue.js";
 import { _resetSession } from "./session.js";
+import { withStorageDisabled } from "./testStorage.js";
 import {
   _resetFlows,
   activeFlows,
@@ -234,22 +235,10 @@ describe("persistence", () => {
   });
 
   it("works when sessionStorage throws", () => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = () => {
-      throw new Error("storage disabled");
-    };
-    const originalGet = Storage.prototype.getItem;
-    Storage.prototype.getItem = () => {
-      throw new Error("storage disabled");
-    };
-
-    try {
+    withStorageDisabled(() => {
       startFlow("private.mode");
       vi.advanceTimersByTime(900);
       expect(endFlow("private.mode")).toBe(900);
-    } finally {
-      Storage.prototype.setItem = original;
-      Storage.prototype.getItem = originalGet;
-    }
+    });
   });
 });

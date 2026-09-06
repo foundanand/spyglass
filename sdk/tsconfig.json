@@ -8,5 +8,5 @@
     "jsxImportSource": "react"
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/next.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/next.ts", "src/testStorage.ts"]
 }

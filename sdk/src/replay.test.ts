@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { _resetSeq, nextSeq } from "./replay.js";
+import { withStorageDisabled } from "./testStorage.js";
 
 const SID = "sess-abc";
 
@@ -58,22 +59,10 @@ describe("chunk sequence counter", () => {
   });
 
   it("falls back to module state when sessionStorage throws", () => {
-    const setItem = Storage.prototype.setItem;
-    const getItem = Storage.prototype.getItem;
-    Storage.prototype.setItem = () => {
-      throw new Error("storage disabled");
-    };
-    Storage.prototype.getItem = () => {
-      throw new Error("storage disabled");
-    };
-
-    try {
+    withStorageDisabled(() => {
       expect(nextSeq("private-mode")).toBe(1);
       expect(nextSeq("private-mode")).toBe(2);
       expect(nextSeq("private-mode")).toBe(3);
-    } finally {
-      Storage.prototype.setItem = setItem;
-      Storage.prototype.getItem = getItem;
-    }
+    });
   });
 });
