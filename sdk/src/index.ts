@@ -1,7 +1,15 @@
 // @foundanand/spyglass-sdk — public entry. Keep this core tiny (§5: ≤5KB gz).
 // rrweb is lazy-imported by its own module, never from here.
 
-export const VERSION = "0.0.0";
+// Injected at build time from package.json — see build.ts (esbuild `define`)
+// and vitest.config.ts, which define it identically so tests see a real value.
+//
+// It used to be typed in by hand, and had already drifted: the package published
+// as 0.0.1 while the SDK reported 0.0.0 to the collector. That matters more here
+// than in most libraries, because reporting accurately on the app it is embedded
+// in is the entire job of this package.
+declare const __SPYGLASS_VERSION__: string;
+export const VERSION: string = __SPYGLASS_VERSION__;
 
 import { updateUser } from "./core.js";
 import { capture, pageview, report as _report } from "./capture.js";

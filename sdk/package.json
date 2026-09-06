@@ -1,6 +1,6 @@
 {
   "name": "@foundanand/spyglass-sdk",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Tiny telemetry SDK for spyglass: events, session replay, flow timing, errors, and bug reports. ~4KB gzipped core; rrweb loads lazily.",
   "keywords": [
     "analytics",
