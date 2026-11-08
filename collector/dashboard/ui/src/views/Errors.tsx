@@ -145,6 +145,7 @@ export function Errors({ onOpenIncident, range }: ErrorsProps) {
         </select>
         <input
           placeholder="filter by user id"
+          aria-label="Filter errors by user id"
           value={filterUser}
           onInput={(e) => setFilterUser((e.target as HTMLInputElement).value)}
         />

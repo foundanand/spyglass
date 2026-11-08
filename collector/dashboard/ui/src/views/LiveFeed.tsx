@@ -247,6 +247,7 @@ export function LiveFeed({ onOpenIncident, range, type, onTypeChange }: LiveFeed
       <div class="toolbar">
         <input
           placeholder="user id"
+          aria-label="Filter by user id"
           value={filterUser}
           onInput={(e) => setFilterUser((e.target as HTMLInputElement).value)}
         />
@@ -275,6 +276,7 @@ export function LiveFeed({ onOpenIncident, range, type, onTypeChange }: LiveFeed
         </div>
         <input
           placeholder="app"
+          aria-label="Filter by app"
           value={filterApp}
           onInput={(e) => setFilterApp((e.target as HTMLInputElement).value)}
         />

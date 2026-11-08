@@ -85,7 +85,7 @@ function Bars({
   );
 }
 
-function FunnelBuilder() {
+function FunnelBuilder({ range }: { range: TimeRange }) {
   const [input, setInput] = useState("");
   const [steps, setSteps] = useState<FunnelStep[]>([]);
   const [toConvert, setToConvert] = useState<StepTiming | null>(null);
@@ -129,6 +129,7 @@ function FunnelBuilder() {
         <input
           style="flex:1;min-width:240px"
           placeholder="step1, step2, step3 (event names)"
+          aria-label="Funnel steps, comma-separated event names"
           value={input}
           onInput={(e) => setInput((e.target as HTMLInputElement).value)}
           onKeyDown={(e) => {
@@ -332,7 +333,7 @@ export function Behaviour({ range }: { range: TimeRange }) {
 
       <Flows range={range} />
 
-      <FunnelBuilder />
+      <FunnelBuilder range={range} />
     </div>
   );
 }

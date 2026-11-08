@@ -10,7 +10,7 @@
 /** Spread onto a <tr> that behaves as a control. */
 export function rowButton(onActivate: () => void, label?: string) {
   return {
-    role: "button",
+    role: "button" as const,
     tabIndex: 0,
     "aria-label": label,
     onClick: onActivate,

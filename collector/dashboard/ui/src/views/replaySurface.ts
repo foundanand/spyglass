@@ -27,6 +27,8 @@ export interface ReplayHandle {
   setMarkers(markers: Marker[]): void;
   /** Subscribe to playback position; called ~10×/s with the current offset (ms). */
   onTimeUpdate(cb: (offsetMs: number) => void): void;
+  /** Text shown over the recording while fullscreen (the inspector is hidden then). */
+  setCaption(text: string): void;
 }
 
 // rrweb IncrementalSnapshot sources that count as *user* activity. A gap with no
@@ -46,6 +48,10 @@ const ICON: Record<string, string> = {
   play: '<path d="M5 3.5v9l7-4.5-7-4.5Z"/>',
   pause: '<path d="M5 3.5h2v9H5v-9Zm4 0h2v9H9v-9Z"/>',
   skip: '<path d="M4 3.5v9l5-4.5-5-4.5Zm5 0v9l5-4.5-5-4.5Z"/>',
+  expand:
+    '<path d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+  collapse:
+    '<path d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
 };
 const icon = (name: keyof typeof ICON): string =>
   `<svg class="icon" width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">${ICON[name]}</svg>`;
@@ -187,7 +193,20 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
   skipBtn.setAttribute("aria-pressed", "false");
   skipBtn.innerHTML = `${icon("skip")}<span>skip idle</span>`;
 
-  controls.append(playBtn, timeline, time, speedBtn, skipBtn, status);
+  // Fullscreen takes the whole surface (stage + controls), not just the
+  // stage, so the transport stays usable. Hidden where the API is unavailable
+  // (e.g. iPhone Safari) rather than shown dead.
+  const fsBtn = document.createElement("button");
+  fsBtn.className = "rr-btn";
+  fsBtn.type = "button";
+  fsBtn.hidden = !root.requestFullscreen;
+  fsBtn.setAttribute("aria-keyshortcuts", "f");
+  const caption = document.createElement("div");
+  caption.className = "rr-caption";
+  caption.setAttribute("aria-hidden", "true");
+  stage.appendChild(caption);
+
+  controls.append(playBtn, timeline, time, speedBtn, skipBtn, fsBtn, status);
 
   // ---- progress tracking ----
   // Track progress by wall-clock elapsed since play started, not
@@ -413,15 +432,22 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
   const setMarkers = (markers: Marker[]): void => {
     markerLayer.innerHTML = "";
     for (const m of markers) {
-      const el = document.createElement("div");
+      // A real <button>: reachable by Tab, activated by Enter/Space, and named —
+      // a bare div with a hover tooltip is invisible to keyboards and screen readers.
+      const el = document.createElement("button");
+      el.type = "button";
       el.className = `rr-marker m-${m.kind}`;
       el.style.left = `${pct(m.offset)}%`;
       el.style.pointerEvents = "auto";
       el.title = m.label;
+      el.setAttribute("aria-label", `${m.label} at ${fmt(m.offset)}, jump to this moment`);
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         seekTo(m.offset);
       });
+      // The track below handles pointer-down for scrubbing; don't let a marker
+      // press start a scrub.
+      el.addEventListener("pointerdown", (e) => e.stopPropagation());
       markerLayer.append(el);
     }
   };
@@ -432,6 +458,9 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     // shortcut. It used to require :hover, which made it mouse-only — a
     // keyboard user could never satisfy the condition.
     if (track.contains(document.activeElement)) return;
+    // Never steal keys from a text field (e.g. the events filter).
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     const engaged = root.matches(":hover") || root.contains(document.activeElement);
     if (!engaged) return;
     if (e.key === " ") {
@@ -441,11 +470,29 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
       seekTo(currentOffset() - 5000);
     } else if (e.key === "ArrowRight") {
       seekTo(currentOffset() + 5000);
+    } else if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      toggleFullscreen();
     }
   };
   window.addEventListener("keydown", onKey);
 
-  // Scale the recorded viewport down to fit the available width.
+  // ---- fullscreen ----
+  const isFullscreen = (): boolean => document.fullscreenElement === root;
+  const renderFsBtn = (): void => {
+    const on = isFullscreen();
+    fsBtn.innerHTML = icon(on ? "collapse" : "expand");
+    fsBtn.title = on ? "Exit fullscreen (f)" : "Fullscreen (f)";
+    fsBtn.setAttribute("aria-label", on ? "Exit fullscreen" : "Enter fullscreen");
+  };
+  const toggleFullscreen = (): void => {
+    if (isFullscreen()) void document.exitFullscreen();
+    else void root.requestFullscreen?.().catch(() => {});
+  };
+  fsBtn.addEventListener("click", toggleFullscreen);
+  renderFsBtn();
+
+  // Scale the recorded viewport to fit. Inline it only ever shrinks to the
+  // available width; in fullscreen it fits both axes and may enlarge, centred.
   const scaleToFit = (): void => {
     const wrapper = stage.querySelector<HTMLElement>(".replayer-wrapper");
     const iframe = stage.querySelector("iframe");
@@ -454,11 +501,25 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     const recH = iframe.offsetHeight || Number(iframe.getAttribute("height")) || 0;
     if (!recW) return;
     const availW = root.clientWidth || stage.clientWidth || recW;
-    const scale = Math.min(1, availW / recW);
     wrapper.style.transformOrigin = "top left";
-    wrapper.style.transform = `scale(${scale})`;
-    stage.style.height = `${Math.round(recH * scale)}px`;
+    if (isFullscreen()) {
+      const availH = Math.max(0, root.clientHeight - controls.offsetHeight);
+      const scale = Math.min(availW / recW, availH / (recH || 1));
+      const dx = Math.max(0, (availW - recW * scale) / 2);
+      const dy = Math.max(0, (availH - recH * scale) / 2);
+      wrapper.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      stage.style.height = `${availH}px`;
+    } else {
+      const scale = Math.min(1, availW / recW);
+      wrapper.style.transform = `scale(${scale})`;
+      stage.style.height = `${Math.round(recH * scale)}px`;
+    }
   };
+  const onFsChange = (): void => {
+    renderFsBtn();
+    scaleToFit();
+  };
+  document.addEventListener("fullscreenchange", onFsChange);
   // The replay iframe holds a *recording*, not live UI. Its internals must not
   // be in the tab order — tabbing into a reconstructed DOM strands the user in
   // a page that no longer exists.
@@ -502,6 +563,8 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
       ro.disconnect();
       window.removeEventListener("resize", onWinResize);
       window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFsChange);
+      if (isFullscreen()) void document.exitFullscreen().catch(() => {});
       try {
         replayer.pause();
         (replayer as unknown as { destroy?: () => void }).destroy?.();
@@ -525,6 +588,9 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
       }
     },
     setMarkers,
+    setCaption(text: string) {
+      if (caption.textContent !== text) caption.textContent = text;
+    },
     onTimeUpdate(cb) {
       timeCb = cb;
     },

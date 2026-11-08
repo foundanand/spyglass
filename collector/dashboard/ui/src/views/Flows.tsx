@@ -160,6 +160,9 @@ export function Flows({ range }: { range: TimeRange }) {
           <input
             style="width:140px"
             placeholder={group === TRAIT_GROUP ? "trait key (e.g. role)" : "prop key"}
+            aria-label={
+              group === TRAIT_GROUP ? "Trait key to group by" : "Event property to group by"
+            }
             value={propKey}
             onInput={(e) => setPropKey((e.target as HTMLInputElement).value)}
           />
