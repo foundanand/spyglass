@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Component, type ComponentChildren, type Ref } from "preact";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "rrweb/dist/style.css";
 // Type-only: erased at compile time, so importing these costs no runtime
 // dependency on rrweb. The surface itself is loaded on demand below — it pulls
@@ -7,6 +8,7 @@ import type { Marker, ReplayHandle } from "./replaySurface";
 import { Icon } from "../components/Icon.js";
 import { Avatar } from "../components/Avatar.js";
 import { RelTime } from "../components/RelTime.js";
+import { rowButton } from "../components/rowProps.js";
 import { SkeletonRows } from "../components/Skeleton.js";
 import { applyRange, type TimeRange } from "../range.js";
 
@@ -70,14 +72,67 @@ function fmtHttp(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-// Index of the last item with ts <= nowTs (for the "now" row highlight).
-function lastIdxLe(items: { ts: number }[], nowTs: number): number {
-  let idx = -1;
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].ts <= nowTs) idx = i;
-    else break;
+// Index of the last item with ts <= t, or -1. Items are sorted ascending by ts,
+// so this is a binary search: it runs on every playback tick.
+function lastIdxLe(items: { ts: number }[], t: number): number {
+  let lo = 0;
+  let hi = items.length - 1;
+  let ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (items[mid].ts <= t) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
   }
-  return idx;
+  return ans;
+}
+
+// One shared formatter. `toLocaleTimeString` builds a new formatter on every
+// call, which is ~22µs a row — over 200ms for a 10,000-row list.
+const TIME = new Intl.DateTimeFormat([], {
+  hour12: false,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+const fmtTime = (ts: number): string => TIME.format(ts);
+
+// ---- rendering long lists while the player ticks ----
+//
+// A long session has thousands of rows, and the player reports its position
+// ~10×/s. Re-rendering every row on each tick starved rrweb's playback of the
+// main thread. So rows are built once per (list, handler) and held by a
+// component that only re-renders when that array changes; the "now" row is
+// marked directly on the DOM instead of through props.
+class RowList extends Component<{
+  rows: ComponentChildren;
+  innerRef: Ref<HTMLDivElement>;
+  class?: string;
+}> {
+  shouldComponentUpdate(next: { rows: ComponentChildren }): boolean {
+    return next.rows !== this.props.rows;
+  }
+  render() {
+    return (
+      <div ref={this.props.innerRef} class={this.props.class}>
+        {this.props.rows}
+      </div>
+    );
+  }
+}
+
+/** Mark row `idx` of the list as "now", clearing the previous one. Re-applies
+ *  when the rows are rebuilt, since vdom reuse can leave a stale mark behind. */
+function useNowRow(list: { current: HTMLElement | null }, idx: number, rows: unknown): void {
+  useEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    el.querySelector(":scope > .now")?.classList.remove("now");
+    if (idx >= 0) el.children[idx]?.classList.add("now");
+  }, [idx, rows]);
 }
 
 function markersFromEvents(events: SpyEvent[], firstTs: number): Marker[] {
@@ -95,16 +150,40 @@ function markersFromEvents(events: SpyEvent[], firstTs: number): Marker[] {
 
 function InspectorConsole({
   logs,
-  nowIdx,
+  nowTs,
   onSeek,
 }: {
   logs: ConsoleLine[];
-  nowIdx: number;
+  nowTs: number;
   onSeek: (ts: number) => void;
 }) {
   const [level, setLevel] = useState("");
+  const shown = useMemo(
+    () => (level ? logs.filter((l) => l.level === level) : logs),
+    [logs, level],
+  );
+  const rows = useMemo(
+    () =>
+      shown.map((l, i) => (
+        <div
+          key={i}
+          class={`console-line level-${l.level}`}
+          title="Jump to this moment"
+          {...rowButton(() => onSeek(l.ts), `Jump to console ${l.level} at ${fmtTime(l.ts)}`)}
+        >
+          <span class="console-ts">{fmtTime(l.ts)}</span>
+          <span class="console-level">{l.level}</span>
+          <span class="console-msg">
+            {l.payload.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ")}
+          </span>
+        </div>
+      )),
+    [shown, onSeek],
+  );
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(shown, nowTs), rows);
+
   if (logs.length === 0) return <p class="empty">No console output in this replay</p>;
-  const shown = level ? logs.filter((l) => l.level === level) : logs;
   return (
     <>
       <div
@@ -124,119 +203,246 @@ function InspectorConsole({
           </button>
         ))}
       </div>
-      <div class="console-lines">
-        {shown.map((l) => {
-          const gi = logs.indexOf(l);
-          return (
-            <div
-              key={gi}
-              class={`console-line level-${l.level}${gi === nowIdx ? " now" : ""}`}
-              onClick={() => onSeek(l.ts)}
-              title="Jump to this moment"
-            >
-              <span class="console-ts">
-                {new Date(l.ts).toLocaleTimeString([], { hour12: false })}
-              </span>
-              <span class="console-level">{l.level}</span>
-              <span class="console-msg">
-                {l.payload.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ")}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      <RowList class="console-lines" innerRef={listRef} rows={rows} />
     </>
   );
 }
 
 function InspectorNetwork({
   net,
-  nowIdx,
+  total,
+  query,
+  onQuery,
+  nowTs,
   onSeek,
 }: {
   net: SpyEvent[];
-  nowIdx: number;
+  total: number;
+  query: string;
+  onQuery: (q: string) => void;
+  nowTs: number;
   onSeek: (ts: number) => void;
 }) {
-  if (net.length === 0) return <p class="empty">No network requests captured</p>;
-  const starts = net.map((e) => e.ts);
-  const ends = net.map((e) => e.ts + (Number(e.props?.duration_ms) || 0));
-  const winStart = Math.min(...starts);
-  const span = Math.max(1, Math.max(...ends) - winStart);
+  const rows = useMemo(() => {
+    let winStart = Infinity;
+    let winEnd = -Infinity;
+    for (const e of net) {
+      winStart = Math.min(winStart, e.ts);
+      winEnd = Math.max(winEnd, e.ts + (Number(e.props?.duration_ms) || 0));
+    }
+    const span = Math.max(1, winEnd - winStart);
+    return net.map((e, i) => {
+      const method = String(e.props?.method ?? "GET");
+      const status = Number(e.props?.status ?? 0);
+      const dur = Number(e.props?.duration_ms ?? 0);
+      const left = ((e.ts - winStart) / span) * 100;
+      const width = Math.max(2, (dur / span) * 100);
+      const statusClass =
+        status >= 500
+          ? "status-5xx"
+          : status >= 400
+            ? "status-4xx"
+            : status >= 300
+              ? "status-3xx"
+              : "status-2xx";
+      const barColor = status >= 400 ? "var(--c-error)" : "var(--accent)";
+      return (
+        <div
+          key={e.id ?? i}
+          class="insp-net-row"
+          title="Jump to this moment"
+          {...rowButton(
+            () => onSeek(e.ts),
+            `Jump to ${method} ${e.name}, status ${status || "unknown"}`,
+          )}
+        >
+          <span class="http-method">{method}</span>
+          <span class="insp-net-url" title={e.name}>
+            {e.name}
+          </span>
+          <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
+          <div class="insp-net-track" aria-hidden="true">
+            <div
+              class="insp-net-bar"
+              style={`left:${left}%;width:${width}%;background:${barColor}`}
+            />
+          </div>
+          <span class="insp-net-meta">
+            <span class="http-dur">{dur ? fmtHttp(dur) : "—"}</span>
+          </span>
+        </div>
+      );
+    });
+  }, [net, onSeek]);
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(net, nowTs), rows);
+
+  if (total === 0) return <p class="empty">No network requests captured</p>;
   return (
     <div>
-      {net.map((e, i) => {
-        const method = String(e.props?.method ?? "GET");
-        const status = Number(e.props?.status ?? 0);
-        const dur = Number(e.props?.duration_ms ?? 0);
-        const left = ((e.ts - winStart) / span) * 100;
-        const width = Math.max(2, (dur / span) * 100);
-        const statusClass =
-          status >= 500
-            ? "status-5xx"
-            : status >= 400
-              ? "status-4xx"
-              : status >= 300
-                ? "status-3xx"
-                : "status-2xx";
-        const barColor = status >= 400 ? "var(--c-error)" : "var(--accent)";
-        return (
-          <div
-            key={i}
-            class={`insp-net-row${i === nowIdx ? " now" : ""}`}
-            onClick={() => onSeek(e.ts)}
-            title="Jump to this moment"
-          >
-            <span class="http-method">{method}</span>
-            <span class="insp-net-url" title={e.name}>
-              {e.name}
-            </span>
-            <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
-            <div class="insp-net-track">
-              <div
-                class="insp-net-bar"
-                style={`left:${left}%;width:${width}%;background:${barColor}`}
-              />
-            </div>
-            <span class="insp-net-meta">
-              <span class="http-dur">{dur ? fmtHttp(dur) : "—"}</span>
-            </span>
+      <div class="insp-filter">
+        <input
+          type="search"
+          class="insp-filter-input"
+          placeholder="Search URL, method, status…"
+          aria-label="Search network requests"
+          value={query}
+          onInput={(e) => onQuery((e.target as HTMLInputElement).value)}
+        />
+        {query.trim() !== "" && (
+          <div class="insp-filter-status" role="status">
+            {net.length} of {total}
+            <button type="button" class="insp-filter-clear" onClick={() => onQuery("")}>
+              clear
+            </button>
           </div>
-        );
-      })}
+        )}
+      </div>
+      {net.length === 0 && <p class="empty">No requests match “{query.trim()}”</p>}
+      <RowList innerRef={listRef} rows={rows} />
     </div>
   );
 }
 
+const TYPE_LABEL: Record<string, string> = {
+  event: "events",
+  pageview: "pages",
+  error: "errors",
+  network: "network",
+  bug_report: "reports",
+};
+
+// Everything a person might type to find an event: its name, URL, type and
+// props (as text, so "invoice" or "500" or a prop value all match). Built once
+// per event — re-stringifying every event's props on every keystroke is what
+// makes search feel slow on a long session.
+const HAYSTACK = new WeakMap<SpyEvent, string>();
+function eventHaystack(e: SpyEvent): string {
+  let h = HAYSTACK.get(e);
+  if (h === undefined) {
+    let props = "";
+    if (e.props) {
+      try {
+        props = JSON.stringify(e.props);
+      } catch {
+        /* unserialisable props are simply not searchable */
+      }
+    }
+    h = `${e.name} ${e.url ?? ""} ${e.type} ${props}`.toLowerCase();
+    HAYSTACK.set(e, h);
+  }
+  return h;
+}
+
 function InspectorEvents({
   events,
-  nowIdx,
+  shown,
+  nowTs,
   onSeek,
+  query,
+  onQuery,
+  types,
+  onToggleType,
+  onClear,
+  truncated,
 }: {
   events: SpyEvent[];
-  nowIdx: number;
+  shown: SpyEvent[];
+  nowTs: number;
   onSeek: (ts: number) => void;
+  query: string;
+  onQuery: (q: string) => void;
+  types: Set<string>;
+  onToggleType: (t: string) => void;
+  onClear: () => void;
+  truncated: boolean;
 }) {
-  if (events.length === 0) return <p class="empty">No events in this session</p>;
-  return (
-    <div>
-      {events.map((e, i) => (
+  const counts = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of events) m.set(e.type, (m.get(e.type) ?? 0) + 1);
+    return m;
+  }, [events]);
+  const rows = useMemo(
+    () =>
+      shown.map((e) => (
         <div
           key={e.id}
-          class={`insp-ev-row${i === nowIdx ? " now" : ""}`}
-          onClick={() => onSeek(e.ts)}
+          class="insp-ev-row"
           title="Jump to this moment"
+          {...rowButton(() => onSeek(e.ts), `Jump to ${e.type} ${e.name || e.url || ""}`)}
         >
-          <span class="insp-ev-time">
-            {new Date(e.ts).toLocaleTimeString([], { hour12: false })}
-          </span>
+          <span class="insp-ev-time">{fmtTime(e.ts)}</span>
           <span class="insp-ev-dot" style={`background:${DOT_COLOR[e.type] ?? "var(--muted)"}`} />
           <span class="insp-ev-name">{e.name || e.url || e.type}</span>
         </div>
-      ))}
+      )),
+    [shown, onSeek],
+  );
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(shown, nowTs), rows);
+
+  if (events.length === 0) return <p class="empty">No events in this session</p>;
+
+  const filtering = query.trim() !== "" || types.size > 0;
+
+  return (
+    <div>
+      <div class="insp-filter">
+        <input
+          type="search"
+          class="insp-filter-input"
+          placeholder="Search events, URLs, props…"
+          aria-label="Search events"
+          value={query}
+          onInput={(e) => onQuery((e.target as HTMLInputElement).value)}
+        />
+        <div class="insp-filter-chips" role="group" aria-label="Filter by event type">
+          {[...counts.entries()].map(([t, n]) => (
+            <button
+              key={t}
+              type="button"
+              class={`seg-btn${types.has(t) ? " active" : ""}`}
+              aria-pressed={types.has(t)}
+              onClick={() => onToggleType(t)}
+            >
+              <span class="insp-ev-dot" style={`background:${DOT_COLOR[t] ?? "var(--muted)"}`} />{" "}
+              {TYPE_LABEL[t] ?? t} <span class="seg-count">{n}</span>
+            </button>
+          ))}
+        </div>
+        {filtering && (
+          <div class="insp-filter-status" role="status">
+            {shown.length} of {events.length}
+            <button type="button" class="insp-filter-clear" onClick={onClear}>
+              clear
+            </button>
+          </div>
+        )}
+      </div>
+      {truncated && (
+        <p class="note">
+          Showing the {events.length.toLocaleString()} most recent events — older ones in this
+          session are not loaded.
+        </p>
+      )}
+      {shown.length === 0 && <p class="empty">No events match these filters</p>}
+      <RowList innerRef={listRef} rows={rows} />
     </div>
   );
 }
+
+async function getJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status} ${r.statusText || "request failed"}`.trim());
+  return (await r.json()) as T;
+}
+
+// Replays are many small chunks; fetching them one at a time made a 23-chunk
+// session wait on 23 round trips. A few in flight at once, order preserved.
+const CHUNK_CONCURRENCY = 6;
+// The events endpoint caps a page at 500 and hands back a cursor for the rest.
+const EVENT_PAGE = 500;
+const EVENT_MAX_PAGES = 20;
 
 export function ReplayPlayer({
   initialSessionId,
@@ -246,34 +452,55 @@ export function ReplayPlayer({
   range: TimeRange;
 }) {
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [sessionsState, setSessionsState] = useState<"loading" | "ready" | "error">("loading");
+  const [sessionsError, setSessionsError] = useState("");
   const [selected, setSelected] = useState<Session | null>(null);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [eventsError, setEventsError] = useState(false);
+  const [truncated, setTruncated] = useState(false);
   const [consoleLogs, setConsoleLogs] = useState<ConsoleLine[]>([]);
   const [events, setEvents] = useState<SpyEvent[]>([]);
   const [tab, setTab] = useState<Tab>("console");
   const [nowTs, setNowTs] = useState(0);
-  const [nowIdx, setNowIdx] = useState(-1);
   const [search, setSearch] = useState("");
   const [errorsOnly, setErrorsOnly] = useState(false);
+  // Inspector filters live here, not in the tab components: switching tabs
+  // unmounts them, and a filter that evaporates when you look elsewhere is a
+  // filter you have to retype.
+  const [evQuery, setEvQuery] = useState("");
+  const [evTypes, setEvTypes] = useState<Set<string>>(new Set());
+  const [netQuery, setNetQuery] = useState("");
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ReplayHandle | null>(null);
   const firstTsRef = useRef(0);
-  const logsRef = useRef<ConsoleLine[]>([]);
+  // Bumped on every openSession; a load that finds it has moved on stops quietly,
+  // which is what lets a person click another session mid-load.
+  const loadToken = useRef(0);
 
-  useEffect(() => {
+  function loadSessions() {
+    setSessionsState("loading");
     const params = new URLSearchParams();
     applyRange(params, range);
-    fetch(`/v1/query/sessions?${params.toString()}`)
-      .then((r) => r.json())
+    getJson<{ sessions?: Session[] }>(`/v1/query/sessions?${params.toString()}`)
       .then((d) => {
         const list: Session[] = d.sessions ?? [];
         setSessions(list);
+        setSessionsState("ready");
         if (initialSessionId) {
           const s = list.find((x) => x.session_id === initialSessionId);
           if (s) void openSession(s);
         }
       })
-      .catch(() => {});
+      .catch((err: Error) => {
+        setSessionsError(err.message);
+        setSessionsState("error");
+      });
+  }
+
+  useEffect(() => {
+    loadSessions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -287,19 +514,53 @@ export function ReplayPlayer({
     });
   }, [sessions, search, errorsOnly]);
 
-  const net = useMemo(() => events.filter((e) => e.type === "network"), [events]);
-  const netNowIdx = useMemo(() => lastIdxLe(net, nowTs), [net, nowTs]);
-  const evNowIdx = useMemo(() => lastIdxLe(events, nowTs), [events, nowTs]);
+  const shownEvents = useMemo(() => {
+    const q = evQuery.trim().toLowerCase();
+    return events.filter(
+      (e) => (evTypes.size === 0 || evTypes.has(e.type)) && (!q || eventHaystack(e).includes(q)),
+    );
+  }, [events, evQuery, evTypes]);
+
+  const allNet = useMemo(() => events.filter((e) => e.type === "network"), [events]);
+  const net = useMemo(() => {
+    const q = netQuery.trim().toLowerCase();
+    if (!q) return allNet;
+    return allNet.filter((e) =>
+      `${e.props?.method ?? "GET"} ${e.name} ${e.props?.status ?? ""}`.toLowerCase().includes(q),
+    );
+  }, [allNet, netQuery]);
+
+  // The timeline markers follow the events filter, so "show me only errors"
+  // means the scrub bar too, not just the list beside it.
+  useEffect(() => {
+    playerRef.current?.setMarkers(markersFromEvents(shownEvents, firstTsRef.current));
+  }, [shownEvents]);
+
+  // While fullscreen the inspector is out of sight; surface what just happened.
+  const activity = useMemo(() => events.filter((e) => e.type !== "network"), [events]);
+  useEffect(() => {
+    if (!playerRef.current) return;
+    const i = lastIdxLe(activity, nowTs);
+    const e = i >= 0 ? activity[i] : null;
+    playerRef.current.setCaption(e ? `${e.type}: ${e.name || e.url || ""}` : "");
+  }, [nowTs, activity]);
 
   async function openSession(session: Session) {
-    if (loading) return;
+    const token = ++loadToken.current;
+    const stale = () => token !== loadToken.current;
     setSelected(session);
     setLoading(true);
+    setLoadError("");
+    setEventsError(false);
+    setTruncated(false);
+    setProgress(null);
     setConsoleLogs([]);
     setEvents([]);
-    setNowIdx(-1);
     setNowTs(0);
     setTab("console");
+    setEvQuery("");
+    setEvTypes(new Set());
+    setNetQuery("");
 
     try {
       if (playerRef.current) {
@@ -312,38 +573,50 @@ export function ReplayPlayer({
       }
       if (playerContainerRef.current) playerContainerRef.current.innerHTML = "";
 
-      const manifest = await fetch(`/v1/sessions/${session.session_id}/replay`).then((r) =>
-        r.json(),
+      const manifest = await getJson<{ chunks?: ChunkInfo[] }>(
+        `/v1/sessions/${session.session_id}/replay`,
       );
+      if (stale()) return;
       const chunks: ChunkInfo[] = manifest.chunks ?? [];
       if (chunks.length === 0) {
-        setLoading(false);
+        setLoadError("This session has no replay recording.");
         return;
       }
 
-      const allEvents: unknown[] = [];
+      const parts: unknown[][] = new Array(chunks.length);
+      let next = 0;
+      let done = 0;
+      setProgress({ done: 0, total: chunks.length });
+      const worker = async () => {
+        for (;;) {
+          const i = next++;
+          if (i >= chunks.length || stale()) return;
+          parts[i] = await getJson<unknown[]>(chunks[i].path);
+          done++;
+          if (!stale()) setProgress({ done, total: chunks.length });
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(CHUNK_CONCURRENCY, chunks.length) }, worker));
+      if (stale()) return;
+
+      const allEvents: unknown[] = parts.flat();
       const logs: ConsoleLine[] = [];
-      for (const chunk of chunks) {
-        const evts: unknown[] = await fetch(chunk.path).then((r) => r.json());
-        for (const ev of evts) {
-          allEvents.push(ev);
-          const e = ev as Record<string, unknown>;
-          if (
-            e.type === PLUGIN_EVENT &&
-            (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN
-          ) {
-            const p = (e.data as Record<string, unknown>).payload as Record<string, unknown>;
-            logs.push({
-              ts: e.timestamp as number,
-              level: (p?.level as string) ?? "log",
-              payload: Array.isArray(p?.payload) ? p.payload : [],
-            });
-          }
+      for (const ev of allEvents) {
+        const e = ev as Record<string, unknown>;
+        if (
+          e.type === PLUGIN_EVENT &&
+          (e.data as Record<string, unknown>)?.plugin === CONSOLE_PLUGIN
+        ) {
+          const p = (e.data as Record<string, unknown>).payload as Record<string, unknown>;
+          logs.push({
+            ts: e.timestamp as number,
+            level: (p?.level as string) ?? "log",
+            payload: Array.isArray(p?.payload) ? p.payload : [],
+          });
         }
       }
 
       logs.sort((a, b) => a.ts - b.ts);
-      logsRef.current = logs;
       setConsoleLogs(logs);
 
       if (playerContainerRef.current && allEvents.length > 0) {
@@ -352,43 +625,68 @@ export function ReplayPlayer({
         firstTsRef.current = firstTs;
 
         const { createReplaySurface } = await import("./replaySurface");
+        if (stale() || !playerContainerRef.current) return;
         playerRef.current = createReplaySurface(playerContainerRef.current, allEvents);
 
         // Sync inspector panes to playback position.
         playerRef.current.onTimeUpdate((offset) => {
           const absTs = firstTs + offset;
           setNowTs((prev) => (prev === absTs ? prev : absTs));
-          const ls = logsRef.current;
-          let idx = -1;
-          for (let i = 0; i < ls.length; i++) {
-            if (ls[i].ts <= absTs) idx = i;
-            else break;
-          }
-          setNowIdx((prev) => (prev === idx ? prev : idx));
         });
 
-        // Events feed markers (timeline) + the Network/Events inspector tabs.
+        // Events feed the timeline markers and the Network/Events tabs. Page
+        // through the cursor: the endpoint caps one page at 500.
         try {
-          const evs: SpyEvent[] = await fetch(
-            `/v1/query/events?session=${encodeURIComponent(session.session_id)}&limit=500`,
-          )
-            .then((r) => r.json())
-            .then((d) => d.events ?? []);
+          const evs: SpyEvent[] = [];
+          let cursor = "";
+          let more = false;
+          for (let page = 0; page < EVENT_MAX_PAGES; page++) {
+            const qs =
+              `session=${encodeURIComponent(session.session_id)}&limit=${EVENT_PAGE}` +
+              (cursor ? `&cursor=${encodeURIComponent(cursor)}` : "");
+            const d = await getJson<{ events?: SpyEvent[]; next?: string }>(
+              `/v1/query/events?${qs}`,
+            );
+            if (stale()) return;
+            evs.push(...(d.events ?? []));
+            cursor = d.next ?? "";
+            more = cursor !== "";
+            if (!more) break;
+          }
           evs.sort((a, b) => a.ts - b.ts);
           setEvents(evs);
-          playerRef.current.setMarkers(markersFromEvents(evs, firstTs));
+          setTruncated(more);
         } catch {
-          /* markers/tabs are best-effort */
+          // The replay itself is fine; say the side panels are incomplete.
+          if (!stale()) setEventsError(true);
         }
       }
     } catch (err) {
-      console.error("replay load error", err);
+      if (!stale()) {
+        console.error("replay load error", err);
+        setLoadError((err as Error).message || "request failed");
+      }
     } finally {
-      setLoading(false);
+      if (!stale()) {
+        setLoading(false);
+        setProgress(null);
+      }
     }
   }
 
-  const seekToTs = (ts: number) => playerRef.current?.goto(ts - firstTsRef.current);
+  // Stable identity: the row lists are memoised on it, so a new function each
+  // render would rebuild every row on every playback tick.
+  const seekToTs = useCallback(
+    (ts: number) => playerRef.current?.goto(ts - firstTsRef.current),
+    [],
+  );
+  const toggleEvType = (t: string) =>
+    setEvTypes((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t);
+      else next.add(t);
+      return next;
+    });
 
   return (
     <div class="replay-root">
@@ -400,30 +698,49 @@ export function ReplayPlayer({
           <input
             style="flex:1;min-width:0"
             placeholder="filter user / app"
+            aria-label="Filter sessions by user or app"
             value={search}
             onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
           />
           <button
             class={`rr-toggle${errorsOnly ? " active" : ""}`}
+            aria-pressed={errorsOnly}
             onClick={() => setErrorsOnly((v) => !v)}
             title="Only sessions with errors"
           >
             <Icon name="error" /> errors
           </button>
         </div>
-        {sessions.length === 0 && (
+        {sessionsState === "loading" && <SkeletonRows rows={4} />}
+        {sessionsState === "error" && (
+          <div class="alert" role="alert">
+            <span>Couldn’t load sessions ({sessionsError}).</span>
+            <button type="button" onClick={loadSessions}>
+              Retry
+            </button>
+          </div>
+        )}
+        {sessionsState === "ready" && sessions.length === 0 && (
           <div class="empty-state">
             <Icon name="play" size={26} />
-            <p>No sessions yet</p>
+            <p>No sessions in this time range</p>
           </div>
+        )}
+        {sessionsState === "ready" && sessions.length > 0 && filtered.length === 0 && (
+          <p class="note">No sessions match these filters.</p>
         )}
         {filtered.map((s) => {
           const dur = s.last_seen - s.started_at;
+          const active = selected?.session_id === s.session_id;
           return (
             <div
               key={s.session_id}
-              class={`session-item${selected?.session_id === s.session_id ? " active" : ""}`}
-              onClick={() => openSession(s)}
+              class={`session-item${active ? " active" : ""}`}
+              aria-current={active ? "true" : undefined}
+              {...rowButton(
+                () => openSession(s),
+                `Open replay: ${s.user_id}, ${s.app}, ${fmtDur(dur)}${s.error_count ? `, ${s.error_count} errors` : ""}`,
+              )}
             >
               <Avatar id={s.user_id} size={26} />
               <div class="session-body">
@@ -464,16 +781,46 @@ export function ReplayPlayer({
               <strong>{selected.user_id}</strong>
               <span class="ts">{new Date(selected.started_at).toLocaleString()}</span>
               {loading && (
-                <span class="live-tag">
+                <span class="live-tag" role="status">
                   <span class="live-dot" /> loading
+                  {progress && (
+                    <span class="rr-progress">
+                      {" "}
+                      {progress.done}/{progress.total}
+                    </span>
+                  )}
                 </span>
               )}
             </div>
+
+            {loadError && (
+              <div class="alert" role="alert">
+                <span>Couldn’t load this replay: {loadError}</span>
+                <button type="button" onClick={() => openSession(selected)}>
+                  Retry
+                </button>
+              </div>
+            )}
+            {eventsError && !loadError && (
+              <div class="alert" role="alert">
+                <span>
+                  The replay loaded, but its events couldn’t be fetched, so the Events and Network
+                  tabs and the timeline markers are incomplete.
+                </span>
+                <button type="button" onClick={() => openSession(selected)}>
+                  Retry
+                </button>
+              </div>
+            )}
 
             <div class="replay-workspace">
               <div class="replay-stage-col">
                 {loading && !consoleLogs.length && <SkeletonRows rows={3} />}
                 <div ref={playerContainerRef} class="player-container" />
+                <p class="rr-hint">
+                  <kbd>Space</kbd> play/pause · <kbd>←</kbd> <kbd>→</kbd> seek 5s · <kbd>f</kbd>{" "}
+                  fullscreen
+                </p>
               </div>
 
               <div class="replay-inspector">
@@ -494,7 +841,7 @@ export function ReplayPlayer({
                     onClick={() => setTab("network")}
                   >
                     <Icon name="network" size={13} /> Network{" "}
-                    <span class="tab-count">{net.length}</span>
+                    <span class="tab-count">{allNet.length}</span>
                   </button>
                   <button
                     class={`inspector-tab${tab === "events" ? " active" : ""}`}
@@ -503,18 +850,42 @@ export function ReplayPlayer({
                     onClick={() => setTab("events")}
                   >
                     <Icon name="clock" size={13} /> Events{" "}
-                    <span class="tab-count">{events.length}</span>
+                    <span class="tab-count">
+                      {events.length}
+                      {truncated ? "+" : ""}
+                    </span>
                   </button>
                 </div>
                 <div class="inspector-body">
                   {tab === "console" && (
-                    <InspectorConsole logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />
+                    <InspectorConsole logs={consoleLogs} nowTs={nowTs} onSeek={seekToTs} />
                   )}
                   {tab === "network" && (
-                    <InspectorNetwork net={net} nowIdx={netNowIdx} onSeek={seekToTs} />
+                    <InspectorNetwork
+                      net={net}
+                      total={allNet.length}
+                      query={netQuery}
+                      onQuery={setNetQuery}
+                      nowTs={nowTs}
+                      onSeek={seekToTs}
+                    />
                   )}
                   {tab === "events" && (
-                    <InspectorEvents events={events} nowIdx={evNowIdx} onSeek={seekToTs} />
+                    <InspectorEvents
+                      events={events}
+                      shown={shownEvents}
+                      nowTs={nowTs}
+                      onSeek={seekToTs}
+                      query={evQuery}
+                      onQuery={setEvQuery}
+                      types={evTypes}
+                      onToggleType={toggleEvType}
+                      onClear={() => {
+                        setEvQuery("");
+                        setEvTypes(new Set());
+                      }}
+                      truncated={truncated}
+                    />
                   )}
                 </div>
               </div>

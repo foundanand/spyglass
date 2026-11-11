@@ -10,13 +10,23 @@
 /** Spread onto a <tr> that behaves as a control. */
 export function rowButton(onActivate: () => void, label?: string) {
   return {
-    role: "button",
+    role: "button" as const,
     tabIndex: 0,
     "aria-label": label,
-    onClick: onActivate,
+    onClick: (e: MouseEvent) => {
+      onActivate();
+      // tabIndex makes a mouse click focus the row. Left there, the next Space
+      // would activate the row again (re-opening a session, or re-seeking and
+      // undoing a pause) instead of reaching the player's own shortcut. A real
+      // pointer click has detail > 0; keyboard activation takes the path below.
+      if (e.detail > 0) (e.currentTarget as HTMLElement | null)?.blur();
+    },
     onKeyDown: (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault(); // Space would scroll the page
+        // Handled here, so it must not also reach the window-level player
+        // shortcuts and toggle playback a second time.
+        e.stopPropagation();
         onActivate();
       }
     },

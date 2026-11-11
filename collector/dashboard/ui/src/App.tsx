@@ -198,7 +198,8 @@ export function App() {
   // the terse "no activity yet" is the least useful thing to say about it.
   if (meta && !meta.has_any_events) {
     return (
-      <main>
+      <main id="main" tabIndex={-1}>
+        <h1 class="sr-only">spyglass</h1>
         <div id="app">
           <Setup meta={meta} onArrived={() => setMeta({ ...meta, has_any_events: true })} />
         </div>
@@ -208,6 +209,17 @@ export function App() {
 
   return (
     <>
+      <a
+        class="skip-link"
+        href="#main"
+        onClick={(e) => {
+          // The app routes on location.hash, so a real #main jump would navigate.
+          e.preventDefault();
+          document.getElementById("main")?.focus();
+        }}
+      >
+        Skip to main content
+      </a>
       <nav ref={navRef}>
         <span class="logo">
           <Icon name="search" size={16} /> spyglass
@@ -241,7 +253,8 @@ export function App() {
           ))}
         </div>
       </nav>
-      <main>
+      <main id="main" tabIndex={-1}>
+        <h1 class="sr-only">spyglass</h1>
         <div id="app">
           <div class="view" key={`${view}/${param ?? ""}`}>
             {view === "home" && <Home range={range} />}
