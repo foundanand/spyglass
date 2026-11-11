@@ -234,7 +234,11 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     baseWall = performance.now();
   };
 
-  const render = (cur: number): void => {
+  // The rAF loop renders every frame, but the inspector only needs the position
+  // ~10×/s; notifying it per frame re-rendered its lists at 60Hz. Seeks and the
+  // end of the recording notify at once so the panes never lag a jump.
+  let lastNotify = 0;
+  const render = (cur: number, immediate = true): void => {
     const p = pct(cur);
     activeFill.style.width = `${p}%`;
     playhead.style.left = `${p}%`;
@@ -243,7 +247,13 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     // aloud is useless.
     track.setAttribute("aria-valuenow", String(Math.round(cur)));
     track.setAttribute("aria-valuetext", `${fmt(cur)} of ${fmt(total)}`);
-    if (timeCb) timeCb(cur);
+    if (timeCb) {
+      const now = performance.now();
+      if (immediate || now - lastNotify >= 100) {
+        lastNotify = now;
+        timeCb(cur);
+      }
+    }
   };
 
   const stopLoop = (): void => {
@@ -261,7 +271,7 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
     if (p) {
       const loop = () => {
         const cur = currentOffset();
-        render(cur);
+        render(cur, cur >= total);
         if (cur >= total) {
           setPlaying(false);
           return;
@@ -344,6 +354,10 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
   const STEP = 5_000;
   const BIG_STEP = 30_000;
   track.addEventListener("keydown", (e) => {
+    // Markers are <button>s inside the track, so their keydown bubbles here.
+    // Handling Space/Enter for them would toggle playback and cancel the
+    // button's own click — the marker would never seek.
+    if (e.target !== track) return;
     let next: number | null = null;
     switch (e.key) {
       case "ArrowLeft":
@@ -454,15 +468,23 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
 
   // ---- keyboard (when the surface is focused / hovered) ----
   const onKey = (e: KeyboardEvent): void => {
-    // The track handles its own keys when focused; this is the surface-wide
-    // shortcut. It used to require :hover, which made it mouse-only — a
-    // keyboard user could never satisfy the condition.
-    if (track.contains(document.activeElement)) return;
     // Never steal keys from a text field (e.g. the events filter).
     const t = e.target as HTMLElement | null;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
-    const engaged = root.matches(":hover") || root.contains(document.activeElement);
+    // It used to require :hover, which made it mouse-only — a keyboard user
+    // could never satisfy the condition.
+    const active = document.activeElement;
+    const engaged = root.matches(":hover") || root.contains(active);
     if (!engaged) return;
+    // Fullscreen is the one shortcut that must work wherever focus is on the
+    // surface — including the track right after scrubbing, or a marker.
+    if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      toggleFullscreen();
+      return;
+    }
+    // The track and the surface's buttons (play, speed, markers…) handle
+    // Space/Enter/arrows themselves; answering too would act twice.
+    if (active === track || (active instanceof HTMLButtonElement && root.contains(active))) return;
     if (e.key === " ") {
       e.preventDefault();
       playing ? pause() : play();
@@ -470,8 +492,6 @@ export function createReplaySurface(root: HTMLElement, events: unknown[]): Repla
       seekTo(currentOffset() - 5000);
     } else if (e.key === "ArrowRight") {
       seekTo(currentOffset() + 5000);
-    } else if (e.key === "f" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      toggleFullscreen();
     }
   };
   window.addEventListener("keydown", onKey);

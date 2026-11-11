@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Component, type ComponentChildren, type Ref } from "preact";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 import "rrweb/dist/style.css";
 // Type-only: erased at compile time, so importing these costs no runtime
 // dependency on rrweb. The surface itself is loaded on demand below — it pulls
@@ -71,14 +72,67 @@ function fmtHttp(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-// Index of the last item with ts <= nowTs (for the "now" row highlight).
-function lastIdxLe(items: { ts: number }[], nowTs: number): number {
-  let idx = -1;
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].ts <= nowTs) idx = i;
-    else break;
+// Index of the last item with ts <= t, or -1. Items are sorted ascending by ts,
+// so this is a binary search: it runs on every playback tick.
+function lastIdxLe(items: { ts: number }[], t: number): number {
+  let lo = 0;
+  let hi = items.length - 1;
+  let ans = -1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (items[mid].ts <= t) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
   }
-  return idx;
+  return ans;
+}
+
+// One shared formatter. `toLocaleTimeString` builds a new formatter on every
+// call, which is ~22µs a row — over 200ms for a 10,000-row list.
+const TIME = new Intl.DateTimeFormat([], {
+  hour12: false,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+const fmtTime = (ts: number): string => TIME.format(ts);
+
+// ---- rendering long lists while the player ticks ----
+//
+// A long session has thousands of rows, and the player reports its position
+// ~10×/s. Re-rendering every row on each tick starved rrweb's playback of the
+// main thread. So rows are built once per (list, handler) and held by a
+// component that only re-renders when that array changes; the "now" row is
+// marked directly on the DOM instead of through props.
+class RowList extends Component<{
+  rows: ComponentChildren;
+  innerRef: Ref<HTMLDivElement>;
+  class?: string;
+}> {
+  shouldComponentUpdate(next: { rows: ComponentChildren }): boolean {
+    return next.rows !== this.props.rows;
+  }
+  render() {
+    return (
+      <div ref={this.props.innerRef} class={this.props.class}>
+        {this.props.rows}
+      </div>
+    );
+  }
+}
+
+/** Mark row `idx` of the list as "now", clearing the previous one. Re-applies
+ *  when the rows are rebuilt, since vdom reuse can leave a stale mark behind. */
+function useNowRow(list: { current: HTMLElement | null }, idx: number, rows: unknown): void {
+  useEffect(() => {
+    const el = list.current;
+    if (!el) return;
+    el.querySelector(":scope > .now")?.classList.remove("now");
+    if (idx >= 0) el.children[idx]?.classList.add("now");
+  }, [idx, rows]);
 }
 
 function markersFromEvents(events: SpyEvent[], firstTs: number): Marker[] {
@@ -96,16 +150,40 @@ function markersFromEvents(events: SpyEvent[], firstTs: number): Marker[] {
 
 function InspectorConsole({
   logs,
-  nowIdx,
+  nowTs,
   onSeek,
 }: {
   logs: ConsoleLine[];
-  nowIdx: number;
+  nowTs: number;
   onSeek: (ts: number) => void;
 }) {
   const [level, setLevel] = useState("");
+  const shown = useMemo(
+    () => (level ? logs.filter((l) => l.level === level) : logs),
+    [logs, level],
+  );
+  const rows = useMemo(
+    () =>
+      shown.map((l, i) => (
+        <div
+          key={i}
+          class={`console-line level-${l.level}`}
+          title="Jump to this moment"
+          {...rowButton(() => onSeek(l.ts), `Jump to console ${l.level} at ${fmtTime(l.ts)}`)}
+        >
+          <span class="console-ts">{fmtTime(l.ts)}</span>
+          <span class="console-level">{l.level}</span>
+          <span class="console-msg">
+            {l.payload.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ")}
+          </span>
+        </div>
+      )),
+    [shown, onSeek],
+  );
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(shown, nowTs), rows);
+
   if (logs.length === 0) return <p class="empty">No console output in this replay</p>;
-  const shown = level ? logs.filter((l) => l.level === level) : logs;
   return (
     <>
       <div
@@ -125,30 +203,7 @@ function InspectorConsole({
           </button>
         ))}
       </div>
-      <div class="console-lines">
-        {shown.map((l) => {
-          const gi = logs.indexOf(l);
-          return (
-            <div
-              key={gi}
-              class={`console-line level-${l.level}${gi === nowIdx ? " now" : ""}`}
-              title="Jump to this moment"
-              {...rowButton(
-                () => onSeek(l.ts),
-                `Jump to console ${l.level} at ${new Date(l.ts).toLocaleTimeString([], { hour12: false })}`,
-              )}
-            >
-              <span class="console-ts">
-                {new Date(l.ts).toLocaleTimeString([], { hour12: false })}
-              </span>
-              <span class="console-level">{l.level}</span>
-              <span class="console-msg">
-                {l.payload.map((p) => (typeof p === "string" ? p : JSON.stringify(p))).join(" ")}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+      <RowList class="console-lines" innerRef={listRef} rows={rows} />
     </>
   );
 }
@@ -168,12 +223,61 @@ function InspectorNetwork({
   nowTs: number;
   onSeek: (ts: number) => void;
 }) {
+  const rows = useMemo(() => {
+    let winStart = Infinity;
+    let winEnd = -Infinity;
+    for (const e of net) {
+      winStart = Math.min(winStart, e.ts);
+      winEnd = Math.max(winEnd, e.ts + (Number(e.props?.duration_ms) || 0));
+    }
+    const span = Math.max(1, winEnd - winStart);
+    return net.map((e, i) => {
+      const method = String(e.props?.method ?? "GET");
+      const status = Number(e.props?.status ?? 0);
+      const dur = Number(e.props?.duration_ms ?? 0);
+      const left = ((e.ts - winStart) / span) * 100;
+      const width = Math.max(2, (dur / span) * 100);
+      const statusClass =
+        status >= 500
+          ? "status-5xx"
+          : status >= 400
+            ? "status-4xx"
+            : status >= 300
+              ? "status-3xx"
+              : "status-2xx";
+      const barColor = status >= 400 ? "var(--c-error)" : "var(--accent)";
+      return (
+        <div
+          key={e.id ?? i}
+          class="insp-net-row"
+          title="Jump to this moment"
+          {...rowButton(
+            () => onSeek(e.ts),
+            `Jump to ${method} ${e.name}, status ${status || "unknown"}`,
+          )}
+        >
+          <span class="http-method">{method}</span>
+          <span class="insp-net-url" title={e.name}>
+            {e.name}
+          </span>
+          <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
+          <div class="insp-net-track" aria-hidden="true">
+            <div
+              class="insp-net-bar"
+              style={`left:${left}%;width:${width}%;background:${barColor}`}
+            />
+          </div>
+          <span class="insp-net-meta">
+            <span class="http-dur">{dur ? fmtHttp(dur) : "—"}</span>
+          </span>
+        </div>
+      );
+    });
+  }, [net, onSeek]);
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(net, nowTs), rows);
+
   if (total === 0) return <p class="empty">No network requests captured</p>;
-  const nowIdx = lastIdxLe(net, nowTs);
-  const starts = net.map((e) => e.ts);
-  const ends = net.map((e) => e.ts + (Number(e.props?.duration_ms) || 0));
-  const winStart = starts.length ? Math.min(...starts) : 0;
-  const span = Math.max(1, (ends.length ? Math.max(...ends) : 0) - winStart);
   return (
     <div>
       <div class="insp-filter">
@@ -195,48 +299,7 @@ function InspectorNetwork({
         )}
       </div>
       {net.length === 0 && <p class="empty">No requests match “{query.trim()}”</p>}
-      {net.map((e, i) => {
-        const method = String(e.props?.method ?? "GET");
-        const status = Number(e.props?.status ?? 0);
-        const dur = Number(e.props?.duration_ms ?? 0);
-        const left = ((e.ts - winStart) / span) * 100;
-        const width = Math.max(2, (dur / span) * 100);
-        const statusClass =
-          status >= 500
-            ? "status-5xx"
-            : status >= 400
-              ? "status-4xx"
-              : status >= 300
-                ? "status-3xx"
-                : "status-2xx";
-        const barColor = status >= 400 ? "var(--c-error)" : "var(--accent)";
-        return (
-          <div
-            key={e.id ?? i}
-            class={`insp-net-row${i === nowIdx ? " now" : ""}`}
-            title="Jump to this moment"
-            {...rowButton(
-              () => onSeek(e.ts),
-              `Jump to ${method} ${e.name}, status ${status || "unknown"}`,
-            )}
-          >
-            <span class="http-method">{method}</span>
-            <span class="insp-net-url" title={e.name}>
-              {e.name}
-            </span>
-            <span class={`status-badge ${statusClass}`}>{status || "—"}</span>
-            <div class="insp-net-track" aria-hidden="true">
-              <div
-                class="insp-net-bar"
-                style={`left:${left}%;width:${width}%;background:${barColor}`}
-              />
-            </div>
-            <span class="insp-net-meta">
-              <span class="http-dur">{dur ? fmtHttp(dur) : "—"}</span>
-            </span>
-          </div>
-        );
-      })}
+      <RowList innerRef={listRef} rows={rows} />
     </div>
   );
 }
@@ -250,17 +313,25 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 // Everything a person might type to find an event: its name, URL, type and
-// props (as text, so "invoice" or "500" or a prop value all match).
+// props (as text, so "invoice" or "500" or a prop value all match). Built once
+// per event — re-stringifying every event's props on every keystroke is what
+// makes search feel slow on a long session.
+const HAYSTACK = new WeakMap<SpyEvent, string>();
 function eventHaystack(e: SpyEvent): string {
-  let props = "";
-  if (e.props) {
-    try {
-      props = JSON.stringify(e.props);
-    } catch {
-      /* unserialisable props are simply not searchable */
+  let h = HAYSTACK.get(e);
+  if (h === undefined) {
+    let props = "";
+    if (e.props) {
+      try {
+        props = JSON.stringify(e.props);
+      } catch {
+        /* unserialisable props are simply not searchable */
+      }
     }
+    h = `${e.name} ${e.url ?? ""} ${e.type} ${props}`.toLowerCase();
+    HAYSTACK.set(e, h);
   }
-  return `${e.name} ${e.url ?? ""} ${e.type} ${props}`.toLowerCase();
+  return h;
 }
 
 function InspectorEvents({
@@ -291,11 +362,28 @@ function InspectorEvents({
     for (const e of events) m.set(e.type, (m.get(e.type) ?? 0) + 1);
     return m;
   }, [events]);
+  const rows = useMemo(
+    () =>
+      shown.map((e) => (
+        <div
+          key={e.id}
+          class="insp-ev-row"
+          title="Jump to this moment"
+          {...rowButton(() => onSeek(e.ts), `Jump to ${e.type} ${e.name || e.url || ""}`)}
+        >
+          <span class="insp-ev-time">{fmtTime(e.ts)}</span>
+          <span class="insp-ev-dot" style={`background:${DOT_COLOR[e.type] ?? "var(--muted)"}`} />
+          <span class="insp-ev-name">{e.name || e.url || e.type}</span>
+        </div>
+      )),
+    [shown, onSeek],
+  );
+  const listRef = useRef<HTMLDivElement>(null);
+  useNowRow(listRef, lastIdxLe(shown, nowTs), rows);
 
   if (events.length === 0) return <p class="empty">No events in this session</p>;
 
   const filtering = query.trim() !== "" || types.size > 0;
-  const nowIdx = lastIdxLe(shown, nowTs);
 
   return (
     <div>
@@ -333,24 +421,12 @@ function InspectorEvents({
       </div>
       {truncated && (
         <p class="note">
-          Showing the first {events.length.toLocaleString()} events — this session has more.
+          Showing the {events.length.toLocaleString()} most recent events — older ones in this
+          session are not loaded.
         </p>
       )}
       {shown.length === 0 && <p class="empty">No events match these filters</p>}
-      {shown.map((e, i) => (
-        <div
-          key={e.id}
-          class={`insp-ev-row${i === nowIdx ? " now" : ""}`}
-          title="Jump to this moment"
-          {...rowButton(() => onSeek(e.ts), `Jump to ${e.type} ${e.name || e.url || ""}`)}
-        >
-          <span class="insp-ev-time">
-            {new Date(e.ts).toLocaleTimeString([], { hour12: false })}
-          </span>
-          <span class="insp-ev-dot" style={`background:${DOT_COLOR[e.type] ?? "var(--muted)"}`} />
-          <span class="insp-ev-name">{e.name || e.url || e.type}</span>
-        </div>
-      ))}
+      <RowList innerRef={listRef} rows={rows} />
     </div>
   );
 }
@@ -388,7 +464,6 @@ export function ReplayPlayer({
   const [events, setEvents] = useState<SpyEvent[]>([]);
   const [tab, setTab] = useState<Tab>("console");
   const [nowTs, setNowTs] = useState(0);
-  const [nowIdx, setNowIdx] = useState(-1);
   const [search, setSearch] = useState("");
   const [errorsOnly, setErrorsOnly] = useState(false);
   // Inspector filters live here, not in the tab components: switching tabs
@@ -400,7 +475,6 @@ export function ReplayPlayer({
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<ReplayHandle | null>(null);
   const firstTsRef = useRef(0);
-  const logsRef = useRef<ConsoleLine[]>([]);
   // Bumped on every openSession; a load that finds it has moved on stops quietly,
   // which is what lets a person click another session mid-load.
   const loadToken = useRef(0);
@@ -463,13 +537,13 @@ export function ReplayPlayer({
   }, [shownEvents]);
 
   // While fullscreen the inspector is out of sight; surface what just happened.
+  const activity = useMemo(() => events.filter((e) => e.type !== "network"), [events]);
   useEffect(() => {
     if (!playerRef.current) return;
-    const real = events.filter((e) => e.type !== "network");
-    const i = lastIdxLe(real, nowTs);
-    const e = i >= 0 ? real[i] : null;
+    const i = lastIdxLe(activity, nowTs);
+    const e = i >= 0 ? activity[i] : null;
     playerRef.current.setCaption(e ? `${e.type}: ${e.name || e.url || ""}` : "");
-  }, [nowTs, events]);
+  }, [nowTs, activity]);
 
   async function openSession(session: Session) {
     const token = ++loadToken.current;
@@ -482,7 +556,6 @@ export function ReplayPlayer({
     setProgress(null);
     setConsoleLogs([]);
     setEvents([]);
-    setNowIdx(-1);
     setNowTs(0);
     setTab("console");
     setEvQuery("");
@@ -544,7 +617,6 @@ export function ReplayPlayer({
       }
 
       logs.sort((a, b) => a.ts - b.ts);
-      logsRef.current = logs;
       setConsoleLogs(logs);
 
       if (playerContainerRef.current && allEvents.length > 0) {
@@ -560,13 +632,6 @@ export function ReplayPlayer({
         playerRef.current.onTimeUpdate((offset) => {
           const absTs = firstTs + offset;
           setNowTs((prev) => (prev === absTs ? prev : absTs));
-          const ls = logsRef.current;
-          let idx = -1;
-          for (let i = 0; i < ls.length; i++) {
-            if (ls[i].ts <= absTs) idx = i;
-            else break;
-          }
-          setNowIdx((prev) => (prev === idx ? prev : idx));
         });
 
         // Events feed the timeline markers and the Network/Events tabs. Page
@@ -609,7 +674,12 @@ export function ReplayPlayer({
     }
   }
 
-  const seekToTs = (ts: number) => playerRef.current?.goto(ts - firstTsRef.current);
+  // Stable identity: the row lists are memoised on it, so a new function each
+  // render would rebuild every row on every playback tick.
+  const seekToTs = useCallback(
+    (ts: number) => playerRef.current?.goto(ts - firstTsRef.current),
+    [],
+  );
   const toggleEvType = (t: string) =>
     setEvTypes((prev) => {
       const next = new Set(prev);
@@ -788,7 +858,7 @@ export function ReplayPlayer({
                 </div>
                 <div class="inspector-body">
                   {tab === "console" && (
-                    <InspectorConsole logs={consoleLogs} nowIdx={nowIdx} onSeek={seekToTs} />
+                    <InspectorConsole logs={consoleLogs} nowTs={nowTs} onSeek={seekToTs} />
                   )}
                   {tab === "network" && (
                     <InspectorNetwork

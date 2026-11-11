@@ -22,7 +22,8 @@
 - **Replay chunks load six at a time**, in order, instead of one round trip each.
 - **Events are paged through the cursor** (the endpoint caps a page at 500)
   instead of silently stopping at 500. If a session still has more after 20
-  pages, the Events tab says so and its count reads `N+`.
+  pages, the Events tab says so and its count reads `N+`. The API returns newest
+  first, so the cap keeps the most recent events and the note says that.
 - Clicking another session while one is loading now switches to it; it used to be
   ignored.
 - Nothing informational renders below 12px (`max(<size>, 12px)`); accent-coloured
@@ -33,6 +34,20 @@
 
 ### Fixed
 
+- **Space after clicking a row restarted or un-paused the replay.** `rowButton` rows are
+  focusable, so a mouse click left focus on the row and the next Space re-activated it
+  (re-opening the session, or re-seeking and undoing a pause) instead of reaching the
+  player's shortcut. A pointer click now releases focus; keyboard activation is handled
+  on the row and no longer also reaches the player's window-level shortcuts.
+- **Enter/Space on a timeline marker toggled playback instead of seeking**, and `f` did
+  nothing while the track or a marker had focus. The track's key handler now ignores keys
+  from its children, and the surface-wide `f` shortcut works wherever focus is on the player.
+- **The inspector froze playback on long sessions.** The player notified the inspector
+  every animation frame, re-rendering every row each time. The position callback is now
+  throttled to ~10×/s (seeks still notify at once), rows are built once per list and the
+  "now" highlight is applied to the DOM directly, lookups use binary search, and time
+  formatting/search text are cached. On a synthetic 10,000-event session, 6s of playback
+  went from 12 long tasks (5.8s blocked, 8 frames) to 3 (0.17s, 324 frames).
 - **Replay screen was not keyboard-operable.** Session, event, console and
   network rows were `<div onClick>`; timeline markers were mouse-only divs with a
   hover tooltip. They are now focusable, named and activated by Enter/Space.
